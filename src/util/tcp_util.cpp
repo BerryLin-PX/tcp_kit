@@ -49,6 +49,10 @@ namespace tcp_server {
         return ret;
     }
 
+    int accept_conn(socket_t socket_fd, sa_in *addr, socklen_t *len) {
+        return accept(socket_fd, (sockaddr *)addr, len);
+    }
+
     int listen_socket(socket_t socket_fd) {
         return listen(socket_fd, SOMAXCONN);
     }

@@ -16,7 +16,9 @@ namespace tcp_server {
 
     sa_in cons_sa_in(uint16_t port);
 
-    int bind_socket(socket_t socket_fd, sa_in *address);
+    int bind_socket(socket_t socket_fd, sa_in *addr);
+
+    int accept_conn(socket_t socket_fd, sa_in *addr, socklen_t *len);
 
     int listen_socket(socket_t socket_fd);
 

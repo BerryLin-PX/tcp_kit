@@ -5,7 +5,11 @@ set(CMAKE_CXX_STANDARD 11)
 
 find_library(LIBEVENT_LIB /usr/local/Cellar/libevent/2.1.12_1)
 
-file(GLOB_RECURSE ALL_FILES "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/*.cpp" "${CMAKE_SOURCE_DIR}/src/*.hpp")
+file(GLOB_RECURSE ALL_FILES
+        "${CMAKE_SOURCE_DIR}/src/*.h"
+        "${CMAKE_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/*.hpp")
+#        "${CMAKE_SOURCE_DIR}/src/*.proto")
 
 add_executable(tcp_server ${ALL_FILES})
 
