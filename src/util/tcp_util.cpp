@@ -1,7 +1,7 @@
 #include <util/tcp_util.h>
 #include <logger/logger.h>
 
-namespace tcp_server {
+namespace tcp_kit {
 
 #if defined(__APPLE__) || defined(__linux__)
 #include <sys/socket.h>

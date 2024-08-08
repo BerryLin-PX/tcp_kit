@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
-using namespace tcp_server;
+using namespace tcp_kit;
 
 void t1_accept_callback(socket_t sock_fd, short events, void *arg);
 
@@ -98,7 +98,7 @@ void t3_server() {
 
 void t3_client() {
     struct event_base *ev_base = event_base_new();
-    if (!ev_base)return;
+    if (!ev_base) return;
     struct bufferevent *bev = bufferevent_socket_new(ev_base, -1, BEV_OPT_CLOSE_ON_FREE);
     if (!bev) {
         event_base_free(ev_base);
@@ -143,10 +143,10 @@ void t3_accept_callback(struct evconnlistener *listener, socket_t fd, struct soc
 void t3_read_callback(bufferevent *bev, void *arg) {
     auto *ev_buffer = bufferevent_get_input(bev);
     size_t len = evbuffer_get_length(ev_buffer);
-    const char needle = EOF;
+    const char *needle = "\r\n\r\n";
     evbuffer_ptr start;
     evbuffer_ptr_set(ev_buffer, &start, t3_read_ptr, EVBUFFER_PTR_SET);
-    auto res = evbuffer_search(ev_buffer, &needle, 1, &start);
+    auto res = evbuffer_search(ev_buffer, needle, 4, &start);
     if(res.pos == -1) t3_read_ptr += len;
     else {
         char *msg = new char[res.pos + 1];

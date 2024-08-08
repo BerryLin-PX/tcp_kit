@@ -8,7 +8,7 @@
 
 #define socket_t evutil_socket_t
 
-namespace tcp_server {
+namespace tcp_kit {
 
     typedef sockaddr_in sa_in;
 

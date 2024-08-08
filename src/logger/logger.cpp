@@ -1,14 +1,12 @@
 #include <logger/logger.h>
 #include <unistd.h>
 #include <time.h>
-#include <sstream>
 #include <utility>
 
 static const char *LEVEL_NAMES[] = {"DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
 static const char *LEVEL_COLORS[] = {"\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"};
 static const char *COLOR_RESET = "\x1b[0m";
 
-//static bool log_started = true;
 
 inline int snprintf_base_msg(char *ptr, uint32_t size, uint8_t level, const char *file, uint32_t line, const tm *local_time);
 
@@ -22,7 +20,6 @@ void log(uint8_t level, const char *file, uint32_t line, const char *fmt, ...) {
         auto base_msg_length = snprintf_base_msg(nullptr, 0, level, file, line, local_time);
         auto log_length = base_msg_length + vsnprintf(nullptr, 0, fmt, args);
         va_start(args, fmt);
-//        char *log_str = new char[log_length + 2];
         auto log_str = std::unique_ptr<char[]>(new char[log_length + 2]);
         snprintf_base_msg(log_str.get(), base_msg_length + 1, level, file, line, local_time);
         vsprintf(log_str.get() + base_msg_length, fmt, args);
