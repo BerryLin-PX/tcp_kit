@@ -43,14 +43,14 @@ namespace tcp_kit {
         return addr;
     }
 
-    int bind_socket(socket_t socket_fd, sa_in *address) {
+    int bind_socket(socket_t socket_fd, sa_in* address) {
         int ret = bind(socket_fd, (struct sockaddr*) address, sizeof(sa_in));
         if(ret < 0) log_error("socket bind failed: %d", ret);
         return ret;
     }
 
-    int accept_conn(socket_t socket_fd, sa_in *addr, socklen_t *len) {
-        return accept(socket_fd, (sockaddr *)addr, len);
+    int accept_conn(socket_t socket_fd, sa_in* addr, socklen_t* len) {
+        return accept(socket_fd, (sockaddr*)addr, len);
     }
 
     int listen_socket(socket_t socket_fd) {

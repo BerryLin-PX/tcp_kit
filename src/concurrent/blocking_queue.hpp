@@ -5,6 +5,8 @@
 #include <queue>
 #include <mutex>
 #include <utility>
+#include <chrono>
+#include <thread/interruptible_thread.h>
 
 namespace tcp_kit {
 
@@ -17,14 +19,18 @@ namespace tcp_kit {
         explicit blocking_queue(uint32_t size);
         inline bool empty();
         inline bool full();
-        void push(const T &el);
-        void push(T &&el);
-        bool offer(const T &el);
-        bool offer(T &&el);
+        void push(const T& el);
+        void push(T&& el);
         T pop();
+        bool offer(const T& el);
+        bool offer(T&& el);
+        bool poll(T& out);
+        template<typename Duration> bool poll(T& out, Duration duration);
+        bool remove(const T& el);
 
-        blocking_queue(const blocking_queue<T> &) = delete;
-        blocking_queue<T> &operator=(const blocking_queue<T> &) = delete;
+
+        blocking_queue(const blocking_queue<T>&) = delete;
+        blocking_queue<T>& operator=(const blocking_queue<T>&) = delete;
 
     private:
         uint32_t           _size;
@@ -51,19 +57,25 @@ namespace tcp_kit {
     }
 
     template<typename T>
-    void blocking_queue<T>::push(const T &el) {
+    void blocking_queue<T>::push(const T& el) {
         unique_lock<mutex> lock(_mutex);
-        while(full())
+        while(full()) {
+            interruption_point();
             _not_full.wait(lock);
+            interruption_point();
+        }
         _queue.push_back(el);
         _not_empty.notify_one();
     }
 
     template<typename T>
-    void blocking_queue<T>::push(T &&el) {
+    void blocking_queue<T>::push(T&& el) {
         unique_lock<mutex> lock(_mutex);
-        while(full())
+        while(full()) {
+            interruption_point();
             _not_full.wait(lock);
+            interruption_point();
+        }
         _queue.push_back(move(el));
         _not_empty.notify_one();
     }
@@ -71,8 +83,11 @@ namespace tcp_kit {
     template<typename T>
     T blocking_queue<T>::pop() {
         unique_lock<mutex> lock(_mutex);
-        while (empty())
+        while (empty()) {
+            interruption_point();
             _not_empty.wait(lock);
+            interruption_point();
+        }
         T pop_out = move(_queue.front());
         _queue.pop_front();
         _not_full.notify_one();
@@ -80,8 +95,7 @@ namespace tcp_kit {
     }
 
     template<typename T>
-    bool blocking_queue<T>::offer(T &&el) {
-        unique_lock<mutex> lock(_mutex);
+    bool blocking_queue<T>::offer(T&& el) {
         if(full()) return false;
         else {
             push(move(el));
@@ -90,14 +104,56 @@ namespace tcp_kit {
     }
 
     template<typename T>
-    bool blocking_queue<T>::offer(const T &el) {
-        unique_lock<mutex> lock(_mutex);
+    bool blocking_queue<T>::offer(const T& el) {
         if(full()) return false;
         else {
             push(el);
             return true;
         }
     }
+
+    template<typename T>
+    bool blocking_queue<T>::poll(T &out) {
+        if(empty()) return false;
+        else {
+            unique_lock<mutex> lock(_mutex);
+            out = move(_queue.front());
+            _queue.pop_front();
+            _not_full.notify_one();
+            return true;
+        }
+    }
+
+    template<typename T>
+    template<typename Duration>
+    bool blocking_queue<T>::poll(T &out, Duration duration) {
+        unique_lock<mutex> lock(_mutex);
+        if(empty()) {
+            interruption_point();
+            _not_empty.wait_for(lock, duration);
+            interruption_point();
+        }
+        if(empty()) return false;
+        else {
+            out = move(_queue.front());
+            _queue.pop_front();
+            _not_full.notify_one();
+            return true;
+        }
+    }
+
+    template<typename T>
+    bool blocking_queue<T>::remove(const T &el) {
+        unique_lock<mutex> lock(_mutex);
+        auto it = std::find(_queue.begin(), _queue.end(), el);
+        if (it != _queue.end()) {
+            _queue.erase(it);
+            _not_full.notify_one();
+            return true;
+        }
+        return false;
+    }
+
 
 }
 

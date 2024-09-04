@@ -1,5 +1,4 @@
 #include <thread/thread_pool.h>
-#include <logger/logger.h>
 #include <stdexcept>
 #include <memory>
 #include <exception>
@@ -8,12 +7,12 @@
 namespace tcp_kit {
 
     // worker
-    thread_pool::worker::worker(thread_pool *tp, runnable first_task):
+    thread_pool::worker::worker(thread_pool* tp, runnable first_task):
             _tp(tp),
             _state(-1),
             _exclusive_owner_thread(nullptr),
             _first_task(first_task),
-            thread(make_shared<interruptible_thread>([this] { _tp->run_worker(this); })) {
+            thread(make_shared<interruptible_thread>()) {
 
     }
 
@@ -65,7 +64,7 @@ namespace tcp_kit {
     thread_pool::thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             blocking_queue<runnable> *const work_queue)
+                             blocking_queue<runnable>* const work_queue)
                              : _core_pool_size((core_pool_size > 0 && core_pool_size <= CAPACITY) ? core_pool_size : 1),
                                _max_pool_size((max_pool_size > 0 && max_pool_size >= core_pool_size && max_pool_size <= CAPACITY) ? max_pool_size : _core_pool_size),
                                _keepalive_time(keepalive_time), _work_queue(work_queue), _ctl(RUNNING | 0) {
@@ -80,8 +79,16 @@ namespace tcp_kit {
         return c >= s;
     }
 
-    inline int32_t thread_pool::work_count(const int32_t c) {
-        return c & CAPACITY;
+    inline bool thread_pool::run_state_less_than(int32_t c, int32_t s) {
+        return c < s;
+    }
+
+    inline int32_t thread_pool::worker_count_of(int32_t ctl) {
+        return ctl & CAPACITY;
+    }
+
+    inline int32_t thread_pool::ctl_of(int32_t rs, int32_t wc) {
+        return rs | wc;
     }
 
     inline bool thread_pool::is_running(const int32_t c) {
@@ -91,7 +98,7 @@ namespace tcp_kit {
     void thread_pool::execute(runnable first_task) {
         if(!first_task) throw invalid_argument("Null Pointer Exception");
         int32_t c = _ctl.load();
-        if(work_count(c) < _core_pool_size) {
+        if(worker_count_of(c) < _core_pool_size) {
             if(add_worker(first_task, true))
                 return;
             c = _ctl.load();
@@ -100,7 +107,7 @@ namespace tcp_kit {
             int32_t recheck = _ctl.load();
             if(!is_running(recheck) && remove(first_task))
                 reject(first_task);
-            else if(!work_count(recheck))
+            else if(!worker_count_of(recheck))
                 add_worker(nullptr, false);
         } else if(!add_worker(first_task, false))
             reject(first_task);
@@ -114,7 +121,7 @@ namespace tcp_kit {
             if(rs >= SHUTDOWN && !(rs == SHUTDOWN && first_task == nullptr && !_work_queue->empty()))
                 return false;
             for(;;) {
-                int wc = work_count(c);
+                int wc = worker_count_of(c);
                 if(wc >= CAPACITY || wc >= (core ? _core_pool_size : _max_pool_size))
                     return false;
                 if(_ctl.exchange(c + 1) == c)
@@ -131,9 +138,10 @@ namespace tcp_kit {
         try {
             w = make_shared<worker>(this, first_task);
             shared_ptr<interruptible_thread> t = w->thread;
+            t->set_runnable([this, &w]{ run_worker(w); });
             if(t) {
                 {
-                    lock_guard<recursive_mutex> lock(_mutex);
+                    lock_guard<recursive_mutex> main_lock(_mutex);
                     int32_t rs = run_state_of(_ctl.load());
                     if(rs < SHUTDOWN || (rs == SHUTDOWN && !first_task)) {
                         if(t->get_state() == interruptible_thread::state::NEW)
@@ -146,7 +154,7 @@ namespace tcp_kit {
                     }
                 }
                 if(work_added) {
-                    t->start();
+                    t->start(); // TODO ?
                     work_started = true;
                 }
             }
@@ -157,7 +165,7 @@ namespace tcp_kit {
         return work_started;
     }
 
-    void thread_pool::run_worker(worker *w) {
+    void thread_pool::run_worker(const shared_ptr<worker>& w) {
         shared_ptr<interruptible_thread> wt = w->thread;
         runnable task = w->_first_task;
         w->_first_task = nullptr;
@@ -197,33 +205,126 @@ namespace tcp_kit {
         process_worker_exit(w, completed_abruptly);
     }
 
-    void thread_pool::before_execute(shared_ptr<interruptible_thread>& t, runnable r) {
-
-    }
-
-    void thread_pool::after_execute(shared_ptr<interruptible_thread> &t, const exception_ptr &exp) {
-
-    }
+    void thread_pool::before_execute(shared_ptr<interruptible_thread> &t, runnable r) { }
+    void thread_pool::after_execute(shared_ptr<interruptible_thread> &t, const exception_ptr &exp) { }
+    void thread_pool::terminated() { }
 
     runnable thread_pool::get_task() {
-
+        bool timeout = false;
+        for(;;) {
+            int32_t c = _ctl.load();
+            if(run_state_at_least(c, SHUTDOWN)
+               && (run_state_at_least(c, STOP) || _work_queue->empty())) {
+                decrement_worker_count();
+                return nullptr;
+            }
+            int32_t wc = worker_count_of(c);
+            bool timed = _allow_core_thread_timeout || wc > _core_pool_size;
+            if ((wc > _max_pool_size || (timed && timeout))
+                && (wc > 1 || _work_queue->empty())) {
+                if(compare_and_decrement_worker_count(c))
+                    return nullptr;
+                continue;
+            }
+            try {
+                runnable r;
+                if(timed) {
+                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
+                } else {
+                    r = _work_queue->pop();
+                }
+                if(!r) return r;
+                timeout = true;
+            } catch (thread_interrupted& retry) {
+                timeout = false;
+            }
+        }
     }
 
-    void thread_pool::process_worker_exit(worker *w, bool completed_abruptly) {
+    void thread_pool::interrupt_idle_workers(bool only_one) {
+        lock_guard<recursive_mutex> main_lock(_mutex);
+        for(const shared_ptr<worker>& w : _workers) {
+            shared_ptr<interruptible_thread> thread = w->thread;
+            if(!thread->interrupt_flag->is_set() && w->try_lock()) {
+                try {
+                    thread->interrupt_flag->set();
+                } catch (...) {}
+                w->unlock();
+            }
+            if(only_one)
+                break;
+        }
+    }
 
+    void thread_pool::add_worker_failed(const shared_ptr<worker>& w) {
+        lock_guard<recursive_mutex> main_lock(_mutex);
+        if(w) {
+            _workers.erase(w);
+            decrement_worker_count();
+            try_terminate();
+        }
+    }
+
+    void thread_pool::process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly) {
+        if(completed_abruptly)
+            decrement_worker_count();
+        lock_guard<recursive_mutex> main_lock(_mutex);
+        _completed_task_count += w->completed_tasks;
+        _workers.erase(w);
+        try_terminate();
+        int32_t c = _ctl.load();
+        if(run_state_less_than(c, STOP)) {
+            uint32_t min = _allow_core_thread_timeout ? 0 : _core_pool_size;
+            if (min == 0 && ! _work_queue->empty())
+                min = 1;
+            if (worker_count_of(c) >= min)
+                return;
+        }
+        add_worker(nullptr, false);
+    }
+
+    inline void thread_pool::decrement_worker_count() {
+        _ctl.fetch_add(-1);
+    }
+
+    bool thread_pool::compare_and_decrement_worker_count(int32_t expect) {
+        return _ctl.compare_exchange_weak(expect, expect - 1);
     }
 
     bool thread_pool::remove(runnable task) {
-        return false;
+        bool removed = _work_queue->remove(task);
+        try_terminate();
+        return removed;
     }
 
     void thread_pool::reject(runnable task) {
-
+        // TODO
     }
 
-    void thread_pool::add_worker_failed(shared_ptr<worker> worker) {
-
+    void thread_pool::try_terminate() {
+        for(;;) {
+            int32_t c = _ctl.load();
+            if (is_running(c) ||
+                run_state_at_least(c, TIDYING) ||
+                (run_state_less_than(c, STOP) && !_work_queue->empty()))
+                return;
+            if (worker_count_of(c) != 0) {
+                interrupt_idle_workers(ONLY_ONE);
+                return;
+            }
+            lock_guard<recursive_mutex> main_lock(_mutex);
+            if(_ctl.compare_exchange_weak(c, ctl_of(TIDYING, 0))) {
+                try {
+                    terminated();
+                } catch (...) {
+                    _ctl = ctl_of(TERMINATED, 0);
+                    _termination.notify_all();
+                    // TODO
+                    // _container.close();
+                    throw;
+                }
+            }
+        }
     }
 
 }
-#pragma clang diagnostic pop

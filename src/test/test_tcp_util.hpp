@@ -9,50 +9,50 @@
 
 using namespace tcp_kit;
 
-void t1_accept_callback(socket_t sock_fd, short events, void *arg);
+void t1_accept_callback(socket_t sock_fd, short events, void* arg);
 
 void t1() {
     int sock_fd = open_socket();
     auto address = cons_sa_in(8000);
     bind_socket(sock_fd, &address);
-    auto *ev_base = event_base_new();
-    auto *ev = event_new(ev_base, sock_fd, EV_READ, t1_accept_callback, nullptr);
+    auto* ev_base = event_base_new();
+    auto* ev = event_new(ev_base, sock_fd, EV_READ, t1_accept_callback, nullptr);
     event_add(ev, nullptr);
     listen_socket(sock_fd);
     event_base_dispatch(ev_base);
 }
 
-void t1_accept_callback(int sock_fd, short events, void *arg) {
+void t1_accept_callback(int sock_fd, short events, void* arg) {
     log_info("ON ACCEPT CALLBACK");
 }
 
 
-void t2_accept_callback(struct evconnlistener *listener, socket_t fd, struct sockaddr *address, int socklen, void *arg);
-void t2_read_callback(bufferevent *bev, void *arg);
-void t2_write_callback(bufferevent *bev, void *arg);
-void t2_event_callback(bufferevent *bev, short what, void *arg);
+void t2_accept_callback(struct evconnlistener* listener, socket_t fd, struct sockaddr* address, int socklen, void* arg);
+void t2_read_callback(bufferevent* bev, void* arg);
+void t2_write_callback(bufferevent* bev, void* arg);
+void t2_event_callback(bufferevent* bev, short what, void* arg);
 
 void t2() {
     auto address = cons_sa_in(8000);
-    auto *ev_base = event_base_new();
-    auto *ev_listener = evconnlistener_new_bind(ev_base,t2_accept_callback,ev_base,
+    auto* ev_base = event_base_new();
+    auto* ev_listener = evconnlistener_new_bind(ev_base,t2_accept_callback,ev_base,
                             LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, 10,
-                            (struct sockaddr *)&address,sizeof(sa_in));
+                            (struct sockaddr*) &address,sizeof(sa_in));
     event_base_dispatch(ev_base);
     evconnlistener_free(ev_listener);
     event_base_free(ev_base);
 }
 
 void t2_accept_callback(
-        struct evconnlistener *listener, socket_t fd,
-        struct sockaddr *address, int socklen, void *arg) {
+        struct evconnlistener* listener, socket_t fd,
+        struct sockaddr* address, int socklen, void* arg) {
     log_info("ON ACCEPT CALLBACK");
     char ip[16] = {0};
-    sockaddr_in *addr = (sockaddr_in *)address;
+    sockaddr_in* addr = (sockaddr_in*) address;
     evutil_inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip));
     log_info("client ip: %s", ip);
-    event_base *ev_base = (event_base *)(arg);
-    bufferevent *bev = bufferevent_socket_new(ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+    event_base* ev_base = (event_base*)(arg);
+    bufferevent* bev = bufferevent_socket_new(ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
     bufferevent_enable(bev, EV_READ | EV_WRITE);
     timeval t1 = {10, 0};
     bufferevent_set_timeouts(bev, &t1, 0);
@@ -61,7 +61,7 @@ void t2_accept_callback(
                       ev_base);
 }
 
-void t2_read_callback(bufferevent *bev, void *arg) {
+void t2_read_callback(bufferevent* bev, void* arg) {
     log_info("READ CALLBACK");
     char buf[1024] = {0};
     size_t len = bufferevent_read(bev, buf, sizeof(buf) - 1);
@@ -69,19 +69,19 @@ void t2_read_callback(bufferevent *bev, void *arg) {
     bufferevent_write(bev, "OK", 3);
 }
 
-void t2_write_callback(bufferevent *bev, void *arg) {
+void t2_write_callback(bufferevent* bev, void* arg) {
     log_info("WRITE CALLBACK");
 }
 
-void t2_event_callback(bufferevent *bev, short what, void *arg) {
+void t2_event_callback(bufferevent* bev, short what, void* arg) {
 
 }
 
 
-void t3_accept_callback(struct evconnlistener *listener, socket_t fd, struct sockaddr *address, int socklen, void *arg);
-void t3_read_callback(bufferevent *bev, void *arg);
-void t3_write_callback(bufferevent *bev, void *arg);
-void t3_event_callback(bufferevent *bev, short what, void *arg);
+void t3_accept_callback(struct evconnlistener* listener, socket_t fd, struct sockaddr* address, int socklen, void* arg);
+void t3_read_callback(bufferevent* bev, void* arg);
+void t3_write_callback(bufferevent* bev, void* arg);
+void t3_event_callback(bufferevent* bev, short what, void* arg);
 
 uint32_t t3_read_ptr = 0;
 

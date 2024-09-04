@@ -14,6 +14,6 @@ enum levels { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define log_error(...) log(LOG_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define log_fatal(...) log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
-void log(uint8_t level, const char *file, uint32_t line, const char *fmt, ...);
+void log(uint8_t level, const char* file, uint32_t line, const char* fmt, ...);
 
 #endif

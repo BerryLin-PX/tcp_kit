@@ -23,7 +23,7 @@ namespace tcp_kit {
         return _flag.load(std::memory_order_relaxed);
     }
 
-    void interrupt_flag::set_condition_variable(condition_variable &cv) {
+    void interrupt_flag::set_condition_variable(condition_variable& cv) {
         lock_guard<mutex> lk(_set_clear_mutex);
         _thread_cond = &cv;
     }
@@ -42,15 +42,17 @@ namespace tcp_kit {
             throw thread_interrupted();
     }
 
-
-
     // interruptible_thread
     interruptible_thread::interruptible_thread(function<void()> runnable): _runnable((move(runnable))), _state(NEW) {
 
     }
 
+    void interruptible_thread::set_runnable(function<void()> runnable) {
+        this->_runnable = move(runnable);
+    }
+
     void interruptible_thread::start() {
-        promise<interrupt_flag *> p;
+        promise<interrupt_flag*> p;
         _internal_thread = unique_ptr<thread>(new thread(([this, &p] {
             p.set_value(&this_thread_interrupt_flag);
             _state = ALIVE;

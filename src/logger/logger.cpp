@@ -3,20 +3,20 @@
 #include <time.h>
 #include <utility>
 
-static const char *LEVEL_NAMES[] = {"DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
-static const char *LEVEL_COLORS[] = {"\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"};
-static const char *COLOR_RESET = "\x1b[0m";
+static const char* LEVEL_NAMES[] = {"DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
+static const char* LEVEL_COLORS[] = {"\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"};
+static const char* COLOR_RESET = "\x1b[0m";
 
 
-inline int snprintf_base_msg(char *ptr, uint32_t size, uint8_t level, const char *file, uint32_t line, const tm *local_time);
+inline int snprintf_base_msg(char* ptr, uint32_t size, uint8_t level, const char* file, uint32_t line, const tm* local_time);
 
 // time pid [level] file line log
-void log(uint8_t level, const char *file, uint32_t line, const char *fmt, ...) {
+void log(uint8_t level, const char* file, uint32_t line, const char* fmt, ...) {
     if(level >= LOG_LEVEL) {
         va_list args;
         va_start(args, fmt);
         auto current_time = time(nullptr);
-        auto *local_time = localtime(&current_time);
+        auto* local_time = localtime(&current_time);
         auto base_msg_length = snprintf_base_msg(nullptr, 0, level, file, line, local_time);
         auto log_length = base_msg_length + vsnprintf(nullptr, 0, fmt, args);
         va_start(args, fmt);
@@ -30,7 +30,7 @@ void log(uint8_t level, const char *file, uint32_t line, const char *fmt, ...) {
 }
 
 
-int snprintf_base_msg(char *ptr, uint32_t size, uint8_t level, const char *file, uint32_t line, const tm *time) {
+int snprintf_base_msg(char* ptr, uint32_t size, uint8_t level, const char* file, uint32_t line, const tm* time) {
     return snprintf(ptr, size, "%02d-%02d %02d:%02d:%02d %d %s[%s]%s %s %d: ",
                     time->tm_mon + 1,
                     time->tm_mday,
