@@ -30,10 +30,15 @@ namespace tcp_kit {
                              uint64_t keepalive_time,
                              blocking_queue<runnable>* work_queue);
         void execute(runnable);
-
+        template<typename Duration> void await_termination(Duration duration);
+        void shutdown();
+        bool is_shutdown();
+        bool is_terminating();
+        bool is_terminated();
         thread_pool(const thread_pool&) = delete;
         thread_pool& operator=(const thread_pool&) = delete;
 
+    private:
         class worker {
         public:
             volatile uint64_t completed_tasks;
@@ -64,37 +69,6 @@ namespace tcp_kit {
 
         };
 
-    private:
-//        class worker {
-//        public:
-//            volatile uint64_t completed_tasks;
-//            shared_ptr<interruptible_thread> thread;
-//
-//            explicit worker(thread_pool* tp, runnable first_task);
-//
-//            bool try_lock();
-//            void lock();
-//            void unlock();
-//            bool locked() const;
-//            bool held_exclusive() const;
-//            void erase_exclusive_owner_thread();
-//            void set_exclusive_owner_thread(thread::id thread_id);
-//
-//            ~worker();
-//
-//            worker(const worker&) = delete;
-//            worker& operator=(const worker&) = delete;
-//
-//        private:
-//            thread_pool*             _tp;
-//            mutex                    _mutex;
-//            volatile int8_t          _state;
-//            thread::id*              _exclusive_owner_thread;
-//            runnable                 _first_task;
-//            friend thread_pool;
-//
-//        };
-
         static const int32_t CAPACITY   = (1 << COUNT_BITS) - 1;
         static const int32_t RUNNING    = -1 << COUNT_BITS;
         static const int32_t SHUTDOWN   =  0 << COUNT_BITS;
@@ -104,14 +78,14 @@ namespace tcp_kit {
         atomic<int32_t>      _ctl;
         static const bool    ONLY_ONE = true;
 
-        recursive_mutex      _mutex;
-        condition_variable   _termination;
-        const uint32_t       _core_pool_size;
-        const uint32_t       _max_pool_size;
-        const uint64_t       _keepalive_time;
-        const bool           _allow_core_thread_timeout = false; // TODO
-        uint32_t             _largest_pool_size;
-        uint64_t             _completed_task_count;
+        recursive_mutex  _mutex;
+        const uint32_t   _core_pool_size;
+        const uint32_t   _max_pool_size;
+        const uint64_t   _keepalive_time;
+        const bool       _allow_core_thread_timeout = false; // TODO
+        uint32_t         _largest_pool_size;
+        uint64_t         _completed_task_count;
+        condition_variable_any            _termination;
         blocking_queue<runnable>* const   _work_queue;
         unordered_set<shared_ptr<worker>> _workers; // TODO should be thread safe
 
@@ -126,7 +100,9 @@ namespace tcp_kit {
         virtual void before_execute(shared_ptr<interruptible_thread>& t, runnable r);
         virtual void after_execute(shared_ptr<interruptible_thread>& t, const exception_ptr& exp);
         virtual void terminated();
+        virtual void on_shutdown();
         runnable get_task();
+        void interrupt_idle_workers();
         void interrupt_idle_workers(bool only_one);
         void process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly);
         void decrement_worker_count();
@@ -134,7 +110,9 @@ namespace tcp_kit {
         void add_worker_failed(const shared_ptr<worker>& w);
         bool remove(runnable task);
         void reject(runnable task);
+        void advance_run_state(uint32_t target_state);
         void try_terminate();
+        void check_shutdown_access();
     };
 
 

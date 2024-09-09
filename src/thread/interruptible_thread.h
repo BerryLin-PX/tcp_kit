@@ -20,9 +20,39 @@ namespace tcp_kit {
         void set_condition_variable(condition_variable& cv);
         void clear_condition_variable();
         template<typename Lockable> void wait(condition_variable_any& cv, Lockable& lk);
+        template<typename Lockable, typename Duration> void wait_for(condition_variable_any& cv,
+                                                                       Lockable& lk,
+                                                                       Duration duration);
         struct clear_cv_on_destruct { ~clear_cv_on_destruct(); };
 
     private:
+        template<class Lockable>
+        struct custom_lock {
+            interrupt_flag*  self;
+            Lockable&        lk;
+
+            custom_lock(interrupt_flag* self_,
+                        condition_variable_any& cond,
+                        Lockable& lk_): self(self), lk(lk_) {
+                self->_set_clear_mutex.lock();
+                self->_thread_cond_any = &cond;
+            }
+
+            void unlock() {
+                lk.unlock();
+                self->_set_clear_mutex.unlock();
+            }
+
+            void lock() {
+                std::lock(self->_set_clear_mutex, lk);
+            }
+
+            ~custom_lock() {
+                self->_thread_cond_any = 0;
+                self->_set_clear_mutex.unlock();
+            }
+        };
+
         atomic<bool>             _flag;
         condition_variable*      _thread_cond;
         condition_variable_any*  _thread_cond_any;
@@ -60,37 +90,24 @@ namespace tcp_kit {
         this_thread_interrupt_flag.wait(cv, lk);
     }
 
+    template<typename Lockable, typename Duration>
+    void interruptible_wait_for(condition_variable_any& cv, Lockable& lk, Duration duration) {
+        this_thread_interrupt_flag.wait_for(cv, lk, duration);
+    }
+
     template<typename Lockable>
     void interrupt_flag::wait(condition_variable_any& cv, Lockable& lk) {
-        struct custom_lock {
-            interrupt_flag*  self;
-            Lockable&        lk;
-
-            custom_lock(interrupt_flag* self_,
-                        condition_variable_any& cond,
-                        Lockable& lk_): self(self), lk(lk_) {
-                self->_set_clear_mutex.lock();
-                self->_thread_cond_any = &cond;
-            }
-
-            void unlock() {
-                lk.unlock();
-                self->_set_clear_mutex.unlock();
-            }
-
-            void lock() {
-                std::lock(self->_set_clear_mutex, lk);
-            }
-
-            ~custom_lock() {
-                self->_thread_cond_any = 0;
-                self->_set_clear_mutex.unlock();
-            }
-        };
-
-        custom_lock cl(this, cv, lk);
+        custom_lock<Lockable> cl(this, cv, lk);
         interruption_point();
         cv.wait(lk);
+        interruption_point();
+    }
+
+    template<typename Lockable, typename Duration>
+    void interrupt_flag::wait_for(condition_variable_any& cv, Lockable& lk, Duration duration) {
+        custom_lock<Lockable> cl(this, cv, lk);
+        interruption_point();
+        cv.wait_for(lk, duration);
         interruption_point();
     }
 

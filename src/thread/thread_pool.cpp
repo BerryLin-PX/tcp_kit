@@ -114,6 +114,37 @@ namespace tcp_kit {
             reject(first_task);
     }
 
+    template<typename Duration>
+    void thread_pool::await_termination(Duration duration) {
+        lock_guard<recursive_mutex> main_lock(_mutex);
+        if(run_state_less_than(_ctl.load(), TERMINATED))
+            interruptible_wait_for(_termination, main_lock, duration);
+    }
+
+    void thread_pool::shutdown() {
+        {
+            lock_guard<recursive_mutex> main_lock(_mutex);
+            check_shutdown_access();
+            advance_run_state(SHUTDOWN);
+            interrupt_idle_workers();
+            on_shutdown();
+        }
+        try_terminate();
+    }
+
+    bool thread_pool::is_shutdown() {
+        return run_state_at_least(_ctl.load(), SHUTDOWN);
+    }
+
+    bool thread_pool::is_terminating() {
+        int32_t c = _ctl.load();
+        return run_state_at_least(c, SHUTDOWN) && run_state_less_than(c, TERMINATED);
+    }
+
+    bool thread_pool::is_terminated() {
+        return run_state_at_least(_ctl.load(), TERMINATED);
+    }
+
     bool thread_pool::add_worker(runnable first_task, bool core) {
         retry: // 当前状态是否允许添加新的线程
         for(;;) {
@@ -209,6 +240,7 @@ namespace tcp_kit {
     void thread_pool::before_execute(shared_ptr<interruptible_thread> &t, runnable r) { }
     void thread_pool::after_execute(shared_ptr<interruptible_thread> &t, const exception_ptr &exp) { }
     void thread_pool::terminated() { }
+    void thread_pool::on_shutdown() { }
 
     runnable thread_pool::get_task() {
         bool timeout = false;
@@ -230,7 +262,7 @@ namespace tcp_kit {
             try {
                 runnable r;
                 if(timed) {
-//                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
+                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
                 } else {
                     r = _work_queue->pop();
                 }
@@ -240,6 +272,10 @@ namespace tcp_kit {
                 timeout = false;
             }
         }
+    }
+
+    void thread_pool::interrupt_idle_workers() {
+        interrupt_idle_workers(false);
     }
 
     void thread_pool::interrupt_idle_workers(bool only_one) {
@@ -302,6 +338,14 @@ namespace tcp_kit {
         // TODO
     }
 
+    void thread_pool::advance_run_state(uint32_t target_state) {
+        int32_t c = _ctl.load();
+        while (!run_state_at_least(c, target_state)) {
+            if(_ctl.compare_exchange_weak(c, ctl_of(target_state,worker_count_of(c))))
+                break;
+        }
+    }
+
     void thread_pool::try_terminate() {
         for(;;) {
             int32_t c = _ctl.load();
@@ -326,6 +370,10 @@ namespace tcp_kit {
                 }
             }
         }
+    }
+
+    void thread_pool::check_shutdown_access() {
+
     }
 
 }

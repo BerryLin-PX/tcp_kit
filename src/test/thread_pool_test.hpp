@@ -15,19 +15,20 @@ TEST(thread_pool_tests, execute) {
 }
 
 TEST(thread_pool_tests, exectue_fill_task) {
-    blocking_queue<function<void()>> wq(10);
-    thread_pool tp(1, 1, 1000, &wq);
+    blocking_queue<function<void()>> wq(1);
+    thread_pool tp(4, 10, 1000, &wq);
     atomic<bool> condition;
     atomic<unsigned> count(0);
     for(int i = 0; i < 10; ++i) {
         tp.execute([&condition, &count] {
             while(!condition.load());
-            log_info("count: %d\n", ++count);
+            log_info("count: %d", ++count);
         });
     }
     condition = true;
     while(count.load() != 10);
-    log_info("%d\n", count.load());
+    tp.shutdown();
+    this_thread::sleep_for(chrono::seconds(3));
 }
 
 namespace tcp_kit {
@@ -37,19 +38,28 @@ namespace tcp_kit {
         using namespace std;
 
         void t1() {
-            blocking_queue<function<void()>> wq(10);
-            thread_pool tp(4, 4, 1000, &wq);
+            blocking_queue<function<void()>> wq(1);
+            thread_pool tp(4, 10, 1000, &wq);
             atomic<bool> condition;
             atomic<unsigned> count(0);
             for(int i = 0; i < 10; ++i) {
                 tp.execute([&condition, &count] {
                     while(!condition.load());
-                    log_info("count: %d\n", ++count);
+                    log_info("count: %d", ++count);
                 });
             }
             condition = true;
             while(count.load() != 10);
-            log_info("%d\n", count.load());
+            tp.shutdown();
+            this_thread::sleep_for(chrono::seconds(3));
+        }
+
+        void t2() {
+            blocking_queue<runnable> wq(10);
+            thread_pool tp(4, 4, 1000, &wq);
+            tp.execute([] {
+//        GTEST_LOG_(INFO) << "TASK RUNNING";
+            });
         }
 
     }
