@@ -3,8 +3,9 @@
 #include <memory>
 #include <exception>
 
-#pragma clang diagnostic push
 namespace tcp_kit {
+
+    thread_local interrupt_flag this_thread_interrupt_flag;
 
     // worker
     thread_pool::worker::worker(thread_pool* tp, runnable first_task):
@@ -138,13 +139,13 @@ namespace tcp_kit {
         try {
             w = make_shared<worker>(this, first_task);
             shared_ptr<interruptible_thread> t = w->thread;
-            t->set_runnable([this, &w]{ run_worker(w); });
             if(t) {
+                t->set_runnable([this, w]{ run_worker(w); });
                 {
                     lock_guard<recursive_mutex> main_lock(_mutex);
                     int32_t rs = run_state_of(_ctl.load());
                     if(rs < SHUTDOWN || (rs == SHUTDOWN && !first_task)) {
-                        if(t->get_state() == interruptible_thread::state::NEW)
+                        if(t->get_state() != interruptible_thread::state::NEW)
                             throw runtime_error("Illegal Thread State Exception");
                         _workers.insert(w);
                         auto s = _workers.size();
@@ -177,8 +178,8 @@ namespace tcp_kit {
                 if((run_state_at_least(_ctl.load(), STOP)
                     || (this_thread_interrupt_flag.is_set()
                        && run_state_at_least(_ctl.load(), STOP)))
-                   && !wt->interrupt_flag->is_set())
-                    wt->interrupt_flag->set();
+                   && !wt->flag->is_set())
+                    wt->flag->set();
                 try {
                     before_execute(wt, task);
                     try {
@@ -229,11 +230,11 @@ namespace tcp_kit {
             try {
                 runnable r;
                 if(timed) {
-                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
+//                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
                 } else {
                     r = _work_queue->pop();
                 }
-                if(!r) return r;
+                if(r) return r;
                 timeout = true;
             } catch (thread_interrupted& retry) {
                 timeout = false;
@@ -245,9 +246,9 @@ namespace tcp_kit {
         lock_guard<recursive_mutex> main_lock(_mutex);
         for(const shared_ptr<worker>& w : _workers) {
             shared_ptr<interruptible_thread> thread = w->thread;
-            if(!thread->interrupt_flag->is_set() && w->try_lock()) {
+            if(!thread->flag->is_set() && w->try_lock()) {
                 try {
-                    thread->interrupt_flag->set();
+                    thread->flag->set();
                 } catch (...) {}
                 w->unlock();
             }

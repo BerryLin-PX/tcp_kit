@@ -1,7 +1,6 @@
-#include <thread/interruptible_thread.h>
-
-#include <utility>
 #include <future>
+#include <thread/interruptible_thread.h>
+#include <utility>
 
 namespace tcp_kit {
 
@@ -37,18 +36,18 @@ namespace tcp_kit {
         this_thread_interrupt_flag.clear_condition_variable();
     }
 
-    inline void interruption_point() {
+    void interruption_point() {
         if(this_thread_interrupt_flag.is_set())
             throw thread_interrupted();
     }
 
     // interruptible_thread
-    interruptible_thread::interruptible_thread(function<void()> runnable): _runnable((move(runnable))), _state(NEW) {
+    interruptible_thread::interruptible_thread(function<void()> task): _runnable((move(task))), _state(NEW) {
 
     }
 
-    void interruptible_thread::set_runnable(function<void()> runnable) {
-        this->_runnable = move(runnable);
+    void interruptible_thread::set_runnable(function<void()> task) {
+        this->_runnable = move(task);
     }
 
     void interruptible_thread::start() {
@@ -64,7 +63,11 @@ namespace tcp_kit {
             }
             _state = TERMINATED;
         })));
-        interrupt_flag = p.get_future().get();
+        flag = p.get_future().get();
+    }
+
+    void interruptible_thread::join() {
+        _internal_thread->join();
     }
 
     interruptible_thread::state interruptible_thread::get_state() {

@@ -1,3 +1,6 @@
+#ifndef TCP_KIT_TCP_UTIL_TEST_H
+#define TCP_KIT_TCP_UTIL_TEST_H
+
 #include <logger/logger.h>
 #include <util/tcp_util.h>
 #include <event2/event.h>
@@ -164,3 +167,5 @@ void t3_write_callback(bufferevent *bev, void *arg) {
 void t3_event_callback(bufferevent *bev, short what, void *arg) {
 
 }
+
+#endif

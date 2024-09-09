@@ -32,12 +32,13 @@ namespace tcp_kit {
 
     class interruptible_thread {
     public:
-        interrupt_flag*     interrupt_flag;
+        interrupt_flag*     flag;
 
         enum state { NEW, ALIVE, TERMINATED };
-        explicit interruptible_thread(function<void()> runnable = nullptr);
-        void set_runnable(function<void()> runnable);
+        explicit interruptible_thread(function<void()> task = nullptr);
+        void set_runnable(function<void()> task);
         void start();
+        void join();
         state get_state();
 
         interruptible_thread(const interruptible_thread&) = delete;
@@ -50,7 +51,7 @@ namespace tcp_kit {
 
     };
 
-    thread_local interrupt_flag this_thread_interrupt_flag;
+    extern thread_local interrupt_flag this_thread_interrupt_flag;
 
     void interruption_point();
 

@@ -113,7 +113,7 @@ namespace tcp_kit {
     }
 
     template<typename T>
-    bool blocking_queue<T>::poll(T &out) {
+    bool blocking_queue<T>::poll(T& out) {
         if(empty()) return false;
         else {
             unique_lock<mutex> lock(_mutex);
@@ -126,7 +126,7 @@ namespace tcp_kit {
 
     template<typename T>
     template<typename Duration>
-    bool blocking_queue<T>::poll(T &out, Duration duration) {
+    bool blocking_queue<T>::poll(T& out, Duration duration) {
         unique_lock<mutex> lock(_mutex);
         if(empty()) {
             interruption_point();
@@ -143,7 +143,7 @@ namespace tcp_kit {
     }
 
     template<typename T>
-    bool blocking_queue<T>::remove(const T &el) {
+    bool blocking_queue<T>::remove(const T& el) {
         unique_lock<mutex> lock(_mutex);
         auto it = std::find(_queue.begin(), _queue.end(), el);
         if (it != _queue.end()) {
@@ -154,6 +154,19 @@ namespace tcp_kit {
         return false;
     }
 
+    template<>
+    inline bool blocking_queue<function<void()>>::remove(const function<void()>& el) { // ???
+        unique_lock<mutex> lock(_mutex);
+        auto it = find_if(_queue.begin(), _queue.end(), [&el](const function<void()>& task) {
+            return el.target_type() == task.target_type() && el.target<void()>() == task.target<void()>();
+        });
+        if (it != _queue.end()) {
+            _queue.erase(it);
+            _not_full.notify_one();
+            return true;
+        }
+        return false;
+    }
 
 }
 

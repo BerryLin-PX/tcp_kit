@@ -9,6 +9,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_set>
+#include <functional>
 #include <concurrent/blocking_queue.hpp>
 #include <thread/interruptible_thread.h>
 
@@ -18,7 +19,8 @@ namespace tcp_kit {
 
     using namespace std;
 
-    typedef void (*runnable)();
+    using runnable = function<void()>;
+//    typedef void (*runnable)();
 
     class thread_pool {
 
@@ -32,7 +34,6 @@ namespace tcp_kit {
         thread_pool(const thread_pool&) = delete;
         thread_pool& operator=(const thread_pool&) = delete;
 
-    private:
         class worker {
         public:
             volatile uint64_t completed_tasks;
@@ -63,6 +64,37 @@ namespace tcp_kit {
 
         };
 
+    private:
+//        class worker {
+//        public:
+//            volatile uint64_t completed_tasks;
+//            shared_ptr<interruptible_thread> thread;
+//
+//            explicit worker(thread_pool* tp, runnable first_task);
+//
+//            bool try_lock();
+//            void lock();
+//            void unlock();
+//            bool locked() const;
+//            bool held_exclusive() const;
+//            void erase_exclusive_owner_thread();
+//            void set_exclusive_owner_thread(thread::id thread_id);
+//
+//            ~worker();
+//
+//            worker(const worker&) = delete;
+//            worker& operator=(const worker&) = delete;
+//
+//        private:
+//            thread_pool*             _tp;
+//            mutex                    _mutex;
+//            volatile int8_t          _state;
+//            thread::id*              _exclusive_owner_thread;
+//            runnable                 _first_task;
+//            friend thread_pool;
+//
+//        };
+
         static const int32_t CAPACITY   = (1 << COUNT_BITS) - 1;
         static const int32_t RUNNING    = -1 << COUNT_BITS;
         static const int32_t SHUTDOWN   =  0 << COUNT_BITS;
@@ -81,7 +113,7 @@ namespace tcp_kit {
         uint32_t             _largest_pool_size;
         uint64_t             _completed_task_count;
         blocking_queue<runnable>* const   _work_queue;
-        unordered_set<shared_ptr<worker>> _workers; // TODO thread unsafe
+        unordered_set<shared_ptr<worker>> _workers; // TODO should be thread safe
 
         static int32_t run_state_of(int32_t c);
         static int32_t worker_count_of(int32_t ctl);
