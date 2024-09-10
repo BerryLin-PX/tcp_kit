@@ -50,8 +50,13 @@ namespace tcp_kit {
             }
             condition = true;
             while(count.load() != 10);
+            this_thread::sleep_for(chrono::seconds(1));
+            log_debug("TO SHUTDOWN THE THREAD POOL");
             tp.shutdown();
+            log_debug("THREAD POOL SHUTDOWN INVOKED");
             this_thread::sleep_for(chrono::seconds(3));
+            log_debug("WEAK UP");
+//            tp.await_termination(chrono::seconds(3));
         }
 
         void t2() {

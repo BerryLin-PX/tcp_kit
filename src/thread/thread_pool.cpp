@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <memory>
 #include <exception>
+#include <logger/logger.h>
 
 namespace tcp_kit {
 
@@ -114,13 +115,6 @@ namespace tcp_kit {
             reject(first_task);
     }
 
-    template<typename Duration>
-    void thread_pool::await_termination(Duration duration) {
-        lock_guard<recursive_mutex> main_lock(_mutex);
-        if(run_state_less_than(_ctl.load(), TERMINATED))
-            interruptible_wait_for(_termination, main_lock, duration);
-    }
-
     void thread_pool::shutdown() {
         {
             lock_guard<recursive_mutex> main_lock(_mutex);
@@ -169,6 +163,7 @@ namespace tcp_kit {
         shared_ptr<worker> w;
         try {
             w = make_shared<worker>(this, first_task);
+            log_debug("NEW WORKER THREAD ADDED");
             shared_ptr<interruptible_thread> t = w->thread;
             if(t) {
                 t->set_runnable([this, w]{ run_worker(w); });
@@ -205,12 +200,13 @@ namespace tcp_kit {
         bool completed_abruptly = true;
         try {
             while(task || (task = get_task())) {
+                log_debug("THREAD RUNNING");
                 w->lock();
-                if((run_state_at_least(_ctl.load(), STOP)
-                    || (this_thread_interrupt_flag.is_set()
-                       && run_state_at_least(_ctl.load(), STOP)))
-                   && !wt->flag->is_set())
-                    wt->flag->set();
+                if ((run_state_at_least(_ctl.load(), STOP) ||
+                     (this_thread_interrupt_flag.is_set() &&
+                      run_state_at_least(_ctl.load(), STOP))) &&
+                    !this_thread_interrupt_flag.is_set())
+                    this_thread_interrupt_flag.set();
                 try {
                     before_execute(wt, task);
                     try {
@@ -247,7 +243,7 @@ namespace tcp_kit {
         for(;;) {
             int32_t c = _ctl.load();
             if(run_state_at_least(c, SHUTDOWN)
-               && (run_state_at_least(c, STOP) || _work_queue->empty())) {
+                && (run_state_at_least(c, STOP) || _work_queue->empty())) {
                 decrement_worker_count();
                 return nullptr;
             }
@@ -303,6 +299,7 @@ namespace tcp_kit {
     }
 
     void thread_pool::process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly) {
+        log_debug("ON WORKER THREAD EXIT");
         if(completed_abruptly)
             decrement_worker_count();
         lock_guard<recursive_mutex> main_lock(_mutex);

@@ -115,6 +115,12 @@ namespace tcp_kit {
         void check_shutdown_access();
     };
 
+    template<typename Duration>
+    inline void thread_pool::await_termination(Duration duration) {
+        unique_lock<recursive_mutex> main_lock(_mutex);
+        if(run_state_less_than(_ctl.load(), TERMINATED))
+            interruptible_wait_for(_termination, main_lock, duration);
+    }
 
 }
 

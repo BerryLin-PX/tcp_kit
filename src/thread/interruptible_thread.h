@@ -21,8 +21,8 @@ namespace tcp_kit {
         void clear_condition_variable();
         template<typename Lockable> void wait(condition_variable_any& cv, Lockable& lk);
         template<typename Lockable, typename Duration> void wait_for(condition_variable_any& cv,
-                                                                       Lockable& lk,
-                                                                       Duration duration);
+                                                                     Lockable& lk,
+                                                                     Duration duration);
         struct clear_cv_on_destruct { ~clear_cv_on_destruct(); };
 
     private:
@@ -33,7 +33,7 @@ namespace tcp_kit {
 
             custom_lock(interrupt_flag* self_,
                         condition_variable_any& cond,
-                        Lockable& lk_): self(self), lk(lk_) {
+                        Lockable& lk_): self(self_), lk(lk_) {
                 self->_set_clear_mutex.lock();
                 self->_thread_cond_any = &cond;
             }
@@ -86,7 +86,7 @@ namespace tcp_kit {
     void interruption_point();
 
     template <typename Lockable>
-    void interruptible_wait(condition_variable& cv, Lockable& lk) {
+    void interruptible_wait(condition_variable_any& cv, Lockable& lk) {
         this_thread_interrupt_flag.wait(cv, lk);
     }
 
@@ -99,7 +99,7 @@ namespace tcp_kit {
     void interrupt_flag::wait(condition_variable_any& cv, Lockable& lk) {
         custom_lock<Lockable> cl(this, cv, lk);
         interruption_point();
-        cv.wait(lk);
+        cv.wait(cl);
         interruption_point();
     }
 
@@ -107,7 +107,7 @@ namespace tcp_kit {
     void interrupt_flag::wait_for(condition_variable_any& cv, Lockable& lk, Duration duration) {
         custom_lock<Lockable> cl(this, cv, lk);
         interruption_point();
-        cv.wait_for(lk, duration);
+        cv.wait_for(cl, duration);
         interruption_point();
     }
 

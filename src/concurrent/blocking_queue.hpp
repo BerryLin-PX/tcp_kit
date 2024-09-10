@@ -33,11 +33,11 @@ namespace tcp_kit {
         blocking_queue<T>& operator=(const blocking_queue<T>&) = delete;
 
     private:
-        uint32_t           _size;
-        deque<T>           _queue;
-        mutex              _mutex;
-        condition_variable _not_full;
-        condition_variable _not_empty;
+        uint32_t  _size;
+        deque<T>  _queue;
+        mutex     _mutex;
+        condition_variable_any  _not_full;
+        condition_variable_any  _not_empty;
 
     };
 
@@ -61,7 +61,8 @@ namespace tcp_kit {
         unique_lock<mutex> lock(_mutex);
         while(full()) {
             interruption_point();
-            _not_full.wait(lock);
+//            _not_full.wait(lock);
+            interruptible_wait(_not_full, lock);
             interruption_point();
         }
         _queue.push_back(el);
@@ -73,7 +74,8 @@ namespace tcp_kit {
         unique_lock<mutex> lock(_mutex);
         while(full()) {
             interruption_point();
-            _not_full.wait(lock);
+//            _not_full.wait(lock);
+            interruptible_wait(_not_full, lock);
             interruption_point();
         }
         _queue.push_back(move(el));
@@ -85,7 +87,8 @@ namespace tcp_kit {
         unique_lock<mutex> lock(_mutex);
         while (empty()) {
             interruption_point();
-            _not_empty.wait(lock);
+//            _not_empty.wait(lock);
+            interruptible_wait(_not_empty, lock);
             interruption_point();
         }
         T pop_out = move(_queue.front());
@@ -130,7 +133,8 @@ namespace tcp_kit {
         unique_lock<mutex> lock(_mutex);
         if(empty()) {
             interruption_point();
-            _not_empty.wait_for(lock, duration);
+//            _not_empty.wait_for(lock, duration);
+            interruptible_wait_for(_not_empty, lock, duration);
             interruption_point();
         }
         if(empty()) return false;
