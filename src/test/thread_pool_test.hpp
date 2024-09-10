@@ -54,9 +54,7 @@ namespace tcp_kit {
             log_debug("TO SHUTDOWN THE THREAD POOL");
             tp.shutdown();
             log_debug("THREAD POOL SHUTDOWN INVOKED");
-            this_thread::sleep_for(chrono::seconds(3));
-            log_debug("WEAK UP");
-//            tp.await_termination(chrono::seconds(3));
+            tp.await_termination(chrono::seconds(3));
         }
 
         void t2() {

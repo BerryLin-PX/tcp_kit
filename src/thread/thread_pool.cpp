@@ -365,6 +365,8 @@ namespace tcp_kit {
                     // _container.close();
                     throw;
                 }
+                _ctl = ctl_of(TERMINATED, 0);
+                _termination.notify_all();
             }
         }
     }
