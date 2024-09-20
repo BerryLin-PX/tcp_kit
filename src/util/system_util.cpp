@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-int64_t tcp_kit::processor_numb() {
+int64_t tcp_kit::numb_of_processor() {
     uint32_t numb;
     size_t len = 32;
     sysctlbyname("hw.physicalcpu", &numb, &len, nullptr, 0);

@@ -3,6 +3,8 @@
 #include <test/interruptible_thread_test.hpp>
 #include <test/thread_pool_test.hpp>
 #include <test/thread_pool_worker_test.hpp>
+#include <test/system_util_test.hpp>
+#include <test/server_test.hpp>
 
 #define init_google_test InitGoogleTest
 
@@ -12,6 +14,6 @@
 //}
 
 int main() {
-    tcp_kit::thread_pool_test::t1();
+    tcp_kit::server_test::t2();
     return 0;
 }

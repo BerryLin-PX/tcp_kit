@@ -28,8 +28,10 @@ namespace tcp_kit {
         explicit thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             blocking_queue<runnable>* work_queue);
-        void execute(runnable);
+                             unique_ptr<blocking_queue<runnable>> work_queue);
+        template <typename Func, typename... Args> void execute(Func&& first_task, Args&&... args);
+        void execute(runnable first_task);
+        void await_termination();
         template<typename Duration> void await_termination(Duration duration);
         void shutdown();
         bool is_shutdown();
@@ -85,9 +87,9 @@ namespace tcp_kit {
         const bool       _allow_core_thread_timeout = false; // TODO
         uint32_t         _largest_pool_size;
         uint64_t         _completed_task_count;
-        condition_variable_any            _termination;
-        blocking_queue<runnable>* const   _work_queue;
-        unordered_set<shared_ptr<worker>> _workers; // TODO should be thread safe
+        condition_variable_any                _termination;
+        unordered_set<shared_ptr<worker>>     _workers; // TODO should be thread safe
+        unique_ptr<blocking_queue<runnable>>  _work_queue;
 
         static int32_t run_state_of(int32_t c);
         static int32_t worker_count_of(int32_t ctl);
@@ -114,6 +116,12 @@ namespace tcp_kit {
         void try_terminate();
         void check_shutdown_access();
     };
+
+    template <typename Func, typename... Args>
+    void thread_pool::execute(Func&& first_task, Args&&... args) {
+        auto bound_func = std::bind(std::forward<Func>(first_task), std::forward<Args>(args)...);
+        execute((runnable) bound_func);
+    }
 
     template<typename Duration>
     void thread_pool::await_termination(Duration duration) {

@@ -28,7 +28,6 @@ namespace tcp_kit {
         template<typename Duration> bool poll(T& out, Duration duration);
         bool remove(const T& el);
 
-
         blocking_queue(const blocking_queue<T>&) = delete;
         blocking_queue<T>& operator=(const blocking_queue<T>&) = delete;
 

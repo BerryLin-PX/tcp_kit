@@ -66,10 +66,10 @@ namespace tcp_kit {
     thread_pool::thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             blocking_queue<runnable>* const work_queue)
+                             unique_ptr<blocking_queue<runnable>> work_queue)
                              : _core_pool_size((core_pool_size > 0 && core_pool_size <= CAPACITY) ? core_pool_size : 1),
                                _max_pool_size((max_pool_size > 0 && max_pool_size >= core_pool_size && max_pool_size <= CAPACITY) ? max_pool_size : _core_pool_size),
-                               _keepalive_time(keepalive_time), _work_queue(work_queue), _ctl(RUNNING | 0) {
+                               _keepalive_time(keepalive_time), _work_queue(move(work_queue)), _ctl(RUNNING | 0) {
 
     }
 
@@ -113,6 +113,12 @@ namespace tcp_kit {
                 add_worker(nullptr, false);
         } else if(!add_worker(first_task, false))
             reject(first_task);
+    }
+
+    void thread_pool::await_termination() {
+        unique_lock<recursive_mutex> main_lock(_mutex);
+        if(run_state_less_than(_ctl.load(), TERMINATED))
+            interruptible_wait(_termination, main_lock);
     }
 
     void thread_pool::shutdown() {

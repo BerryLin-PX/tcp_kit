@@ -5,7 +5,7 @@
 
 namespace tcp_kit {
 
-    int64_t processor_numb();
+    int64_t numb_of_processor();
 
 }
 

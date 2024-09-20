@@ -7,16 +7,14 @@
 #include <logger/logger.h>
 
 TEST(thread_pool_tests, execute) {
-    blocking_queue<runnable> wq(10);
-    thread_pool tp(4, 4, 1000, &wq);
+    thread_pool tp(4, 4, 1000, make_unique<blocking_queue<runnable>>(10));
     tp.execute([] {
 //        GTEST_LOG_(INFO) << "TASK RUNNING";
     });
 }
 
 TEST(thread_pool_tests, exectue_fill_task) {
-    blocking_queue<function<void()>> wq(1);
-    thread_pool tp(4, 10, 1000, &wq);
+    thread_pool tp(4, 10, 1000, make_unique<blocking_queue<runnable>>(1));
     atomic<bool> condition;
     atomic<unsigned> count(0);
     for(int i = 0; i < 10; ++i) {
@@ -27,8 +25,11 @@ TEST(thread_pool_tests, exectue_fill_task) {
     }
     condition = true;
     while(count.load() != 10);
+    this_thread::sleep_for(chrono::seconds(1));
+    log_debug("TO SHUTDOWN THE THREAD POOL");
     tp.shutdown();
-    this_thread::sleep_for(chrono::seconds(3));
+    log_debug("THREAD POOL SHUTDOWN INVOKED");
+    tp.await_termination();
 }
 
 namespace tcp_kit {
@@ -38,8 +39,7 @@ namespace tcp_kit {
         using namespace std;
 
         void t1() {
-            blocking_queue<function<void()>> wq(1);
-            thread_pool tp(4, 10, 1000, &wq);
+            thread_pool tp(4, 10, 1000, make_unique<blocking_queue<runnable>>(1));
             atomic<bool> condition;
             atomic<unsigned> count(0);
             for(int i = 0; i < 10; ++i) {
@@ -54,12 +54,11 @@ namespace tcp_kit {
             log_debug("TO SHUTDOWN THE THREAD POOL");
             tp.shutdown();
             log_debug("THREAD POOL SHUTDOWN INVOKED");
-            tp.await_termination(chrono::seconds(3));
+            tp.await_termination();
         }
 
         void t2() {
-            blocking_queue<runnable> wq(10);
-            thread_pool tp(4, 4, 1000, &wq);
+            thread_pool tp(4, 4, 1000, make_unique<blocking_queue<runnable>>(10));
             tp.execute([] {
 //        GTEST_LOG_(INFO) << "TASK RUNNING";
             });
