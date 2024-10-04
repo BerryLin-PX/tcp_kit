@@ -1,3 +1,4 @@
+// 参考自《C++并发编程实战-第二版》第 7 章 lock_free_stack 实现
 #ifndef TCP_KIT_LOCK_FREE_STACK_H
 #define TCP_KIT_LOCK_FREE_STACK_H
 

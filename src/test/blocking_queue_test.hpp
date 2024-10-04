@@ -4,13 +4,13 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <chrono>
-#include <concurrent/blocking_queue.hpp>
+#include <concurrent/blocking_fifo.hpp>
 
 using namespace tcp_kit;
 
 // 测试1：单个线程的基本入队和出队操作
 TEST(blocking_queue_tests, single_thread_basic_operations) {
-    blocking_queue<int> queue(5);  // 队列大小为5
+    blocking_fifo<int> queue(5);  // 队列大小为5
 
     // 测试入队操作
     queue.push(1);
@@ -22,7 +22,7 @@ TEST(blocking_queue_tests, single_thread_basic_operations) {
 
 // 测试2：多线程生产者-消费者测试
 TEST(blocking_queue_tests, multi_thread_producer_consumer) {
-    blocking_queue<int> queue(10);
+    blocking_fifo<int> queue(10);
 
     auto producer = [&queue]() {
         for (int i = 0; i < 10; ++i) {
@@ -47,7 +47,7 @@ TEST(blocking_queue_tests, multi_thread_producer_consumer) {
 
 // 测试3：阻塞和通知机制测试
 TEST(blocking_queue_tests, blocking_and_notification) {
-    blocking_queue<int> queue(1);  // 设置队列大小为1，确保在满时会阻塞
+    blocking_fifo<int> queue(1);  // 设置队列大小为1，确保在满时会阻塞
 
     auto producer = [&queue]() {
         queue.push(1);  // 应该成功
@@ -69,7 +69,7 @@ TEST(blocking_queue_tests, blocking_and_notification) {
 
 // 测试4：测试超时机制
 TEST(blocking_queue_tests, poll_with_timeout) {
-    blocking_queue<int> queue(5);
+    blocking_fifo<int> queue(5);
 
     auto consumer = [&queue]() {
         int val;
@@ -83,7 +83,7 @@ TEST(blocking_queue_tests, poll_with_timeout) {
 
 // 测试5：测试删除功能
 TEST(blocking_queue_tests, remove_element) {
-    blocking_queue<int> queue(5);
+    blocking_fifo<int> queue(5);
     queue.push(1);
     queue.push(2);
     queue.push(3);

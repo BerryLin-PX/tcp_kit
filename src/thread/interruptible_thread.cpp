@@ -1,3 +1,4 @@
+// 参考自《C++并发编程实战-第二版》第 9 章 interruptible_thread 实现
 #include <future>
 #include <thread/interruptible_thread.h>
 #include <utility>

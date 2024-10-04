@@ -1,3 +1,4 @@
+// 参考自 Java JDK-11 中 ThreadPoolExecutor 实现
 #ifndef TCP_KIT_THREAD_POOL_H
 #define TCP_KIT_THREAD_POOL_H
 
@@ -10,7 +11,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <functional>
-#include <concurrent/blocking_queue.hpp>
+#include <concurrent/blocking_fifo.hpp>
 #include <thread/interruptible_thread.h>
 
 #define COUNT_BITS 29
@@ -28,7 +29,7 @@ namespace tcp_kit {
         explicit thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             unique_ptr<blocking_queue<runnable>> work_queue);
+                             unique_ptr<blocking_fifo<runnable>> work_fifo);
         template <typename Func, typename... Args> void execute(Func&& first_task, Args&&... args);
         void execute(runnable first_task);
         void await_termination();
@@ -89,7 +90,7 @@ namespace tcp_kit {
         uint64_t         _completed_task_count;
         condition_variable_any                _termination;
         unordered_set<shared_ptr<worker>>     _workers; // TODO should be thread safe
-        unique_ptr<blocking_queue<runnable>>  _work_queue;
+        unique_ptr<blocking_fifo<runnable>>   _work_fifo;
 
         static int32_t run_state_of(int32_t c);
         static int32_t worker_count_of(int32_t ctl);
@@ -119,7 +120,7 @@ namespace tcp_kit {
 
     template <typename Func, typename... Args>
     void thread_pool::execute(Func&& first_task, Args&&... args) {
-        auto bound_func = std::bind(std::forward<Func>(first_task), std::forward<Args>(args)...);
+        auto bound_func = bind(forward<Func>(first_task), forward<Args>(args)...);
         execute((runnable) bound_func);
     }
 

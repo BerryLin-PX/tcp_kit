@@ -1,3 +1,4 @@
+// 参考自 Java JDK-11 中 java.util.concurrent.ThreadPoolExecutor 实现
 #include <thread/thread_pool.h>
 #include <stdexcept>
 #include <memory>
@@ -66,10 +67,10 @@ namespace tcp_kit {
     thread_pool::thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             unique_ptr<blocking_queue<runnable>> work_queue)
+                             unique_ptr<blocking_fifo<runnable>> work_fifo)
                              : _core_pool_size((core_pool_size > 0 && core_pool_size <= CAPACITY) ? core_pool_size : 1),
                                _max_pool_size((max_pool_size > 0 && max_pool_size >= core_pool_size && max_pool_size <= CAPACITY) ? max_pool_size : _core_pool_size),
-                               _keepalive_time(keepalive_time), _work_queue(move(work_queue)), _ctl(RUNNING | 0) {
+                               _keepalive_time(keepalive_time), _work_fifo(move(work_fifo)), _ctl(RUNNING | 0) {
 
     }
 
@@ -105,7 +106,7 @@ namespace tcp_kit {
                 return;
             c = _ctl.load();
         }
-        if(is_running(_ctl) && _work_queue->offer(first_task)) {
+        if(is_running(_ctl) && _work_fifo->offer(first_task)) {
             int32_t recheck = _ctl.load();
             if(!is_running(recheck) && remove(first_task))
                 reject(first_task);
@@ -150,7 +151,7 @@ namespace tcp_kit {
         for(;;) {
             int32_t c = _ctl.load();
             int32_t rs = run_state_of(c);
-            if(rs >= SHUTDOWN && !(rs == SHUTDOWN && first_task == nullptr && !_work_queue->empty()))
+            if(rs >= SHUTDOWN && !(rs == SHUTDOWN && first_task == nullptr && !_work_fifo->empty()))
                 return false;
             for(;;) {
                 int wc = worker_count_of(c);
@@ -169,7 +170,7 @@ namespace tcp_kit {
         shared_ptr<worker> w;
         try {
             w = make_shared<worker>(this, first_task);
-            log_debug("NEW WORKER THREAD ADDED");
+            log_debug("New worker thread added");
             shared_ptr<interruptible_thread> t = w->thread;
             if(t) {
                 t->set_runnable([this, w]{ run_worker(w); });
@@ -206,7 +207,7 @@ namespace tcp_kit {
         bool completed_abruptly = true;
         try {
             while(task || (task = get_task())) {
-                log_debug("THREAD RUNNING");
+                log_debug("Thread running");
                 w->lock();
                 if ((run_state_at_least(_ctl.load(), STOP) ||
                      (this_thread_interrupt_flag.is_set() &&
@@ -249,14 +250,14 @@ namespace tcp_kit {
         for(;;) {
             int32_t c = _ctl.load();
             if(run_state_at_least(c, SHUTDOWN)
-                && (run_state_at_least(c, STOP) || _work_queue->empty())) {
+                && (run_state_at_least(c, STOP) || _work_fifo->empty())) {
                 decrement_worker_count();
                 return nullptr;
             }
             int32_t wc = worker_count_of(c);
             bool timed = _allow_core_thread_timeout || wc > _core_pool_size;
             if ((wc > _max_pool_size || (timed && timeout))
-                && (wc > 1 || _work_queue->empty())) {
+                && (wc > 1 || _work_fifo->empty())) {
                 if(compare_and_decrement_worker_count(c))
                     return nullptr;
                 continue;
@@ -264,9 +265,9 @@ namespace tcp_kit {
             try {
                 runnable r;
                 if(timed) {
-                    _work_queue->poll(r, chrono::nanoseconds(_keepalive_time));
+                    _work_fifo->poll(r, chrono::nanoseconds(_keepalive_time));
                 } else {
-                    r = _work_queue->pop();
+                    r = _work_fifo->pop();
                 }
                 if(r) return r;
                 timeout = true;
@@ -305,7 +306,7 @@ namespace tcp_kit {
     }
 
     void thread_pool::process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly) {
-        log_debug("ON WORKER THREAD EXIT");
+        log_debug("On worker thread exit");
         if(completed_abruptly)
             decrement_worker_count();
         lock_guard<recursive_mutex> main_lock(_mutex);
@@ -315,7 +316,7 @@ namespace tcp_kit {
         int32_t c = _ctl.load();
         if(run_state_less_than(c, STOP)) {
             uint32_t min = _allow_core_thread_timeout ? 0 : _core_pool_size;
-            if (min == 0 && ! _work_queue->empty())
+            if (min == 0 && ! _work_fifo->empty())
                 min = 1;
             if (worker_count_of(c) >= min)
                 return;
@@ -332,7 +333,7 @@ namespace tcp_kit {
     }
 
     bool thread_pool::remove(runnable task) {
-        bool removed = _work_queue->remove(task);
+        bool removed = _work_fifo->remove(task);
         try_terminate();
         return removed;
     }
@@ -354,7 +355,7 @@ namespace tcp_kit {
             int32_t c = _ctl.load();
             if (is_running(c) ||
                 run_state_at_least(c, TIDYING) ||
-                (run_state_less_than(c, STOP) && !_work_queue->empty()))
+                (run_state_less_than(c, STOP) && !_work_fifo->empty()))
                 return;
             if (worker_count_of(c) != 0) {
                 interrupt_idle_workers(ONLY_ONE);

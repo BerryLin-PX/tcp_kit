@@ -5,6 +5,8 @@
 #include <test/thread_pool_worker_test.hpp>
 #include <test/system_util_test.hpp>
 #include <test/server_test.hpp>
+#include <test/tcp_util_test.hpp>
+#include <test/lock_free_queue_test.hpp>
 
 #define init_google_test InitGoogleTest
 
@@ -14,6 +16,6 @@
 //}
 
 int main() {
-    tcp_kit::server_test::t2();
+    tcp_kit::server_test::t12();
     return 0;
 }

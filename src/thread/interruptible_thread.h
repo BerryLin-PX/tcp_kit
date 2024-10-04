@@ -1,3 +1,4 @@
+// 参考自《C++并发编程实战-第二版》第 9 章 interruptible_thread 实现
 #ifndef TCP_KIT_INTERRUPTIBLE_THREAD_H
 #define TCP_KIT_INTERRUPTIBLE_THREAD_H
 
@@ -62,7 +63,7 @@ namespace tcp_kit {
 
     class interruptible_thread {
     public:
-        interrupt_flag*     flag;
+        interrupt_flag* flag;
 
         enum state { NEW, ALIVE, TERMINATED };
         explicit interruptible_thread(function<void()> task = nullptr);
