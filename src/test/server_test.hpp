@@ -157,7 +157,7 @@ namespace tcp_kit {
         }
 
         void t12() {
-            server svr(3000, 3, 5);
+            server svr;
             svr.start();
         }
 

@@ -52,6 +52,9 @@ namespace tcp_kit {
     // SHUTDOWN   | 所有连接已断开, 待线程池终结、释放事件循环等资源、日志记录等工作完成后进入 TERMINATED 状态
     // TERMINATED | server 生命周期结束
 
+    // 生命周期函数:
+    //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
+
     class server {
 
     public:
@@ -61,6 +64,8 @@ namespace tcp_kit {
                         uint16_t n_ev_handler = 0,
                         uint16_t n_handler = 0);
         void start();
+
+        virtual void when_ready();
 
         friend void acceptor_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
         friend void read_callback(bufferevent *bev, void *arg);
@@ -79,7 +84,7 @@ namespace tcp_kit {
         };
 
         struct _handler {
-            void* fifo;
+            atomic<void*> fifo;
         };
 
         struct _ev_handler {
@@ -88,7 +93,7 @@ namespace tcp_kit {
             vector<_handler*> handlers;
         };
 
-//        static thread_local void* _this_thread;
+        static thread_local void* _this_thread;
 
         static constexpr uint32_t NEW        = 0;
         static constexpr uint32_t READY      = 1 << STATE_OFFSET;
@@ -99,6 +104,9 @@ namespace tcp_kit {
 
         // [4][14][14]: run_state | n_of_acceptor | n_of_ev_handler | n_of_handler
         atomic<uint32_t>            _ctl;
+        mutex                       _mutex;
+        condition_variable_any      _state;
+        atomic<uint32_t>            _ready_threads;
         unique_ptr<thread_pool>     _threads;
         event_base*                 _acceptor_ev_base;
         vector<_ev_handler>         _ev_handlers;
@@ -107,8 +115,11 @@ namespace tcp_kit {
         void acceptor();
         void ev_handler(_ev_handler& t);
         void handler(_handler& t);
-        void wait_until(uint32_t rs);
-        uint32_t ctl_of(uint32_t rs, uint32_t wc);
+        void try_ready();
+        void trans_to(uint32_t rs);
+        void wait_at_least(uint32_t rs);
+        uint32_t handlers_map();
+        uint32_t ctl_of(uint32_t rs, uint32_t hp);
         bool run_state_at_least(uint32_t rs);
         uint16_t n_of_ev_handler();
         uint16_t n_of_handler();
