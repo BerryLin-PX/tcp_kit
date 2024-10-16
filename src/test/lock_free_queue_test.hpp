@@ -3,18 +3,18 @@
 
 namespace tcp_kit {
 
-    namespace lock_free_queue_test {
+    namespace lock_free_fifo_test {
 
         void t1() {
-            lock_free_fifo<int, 10> queue;
+            lock_free_fifo<int> fifo(10);
             for(int i = 0; i <= 20; ++i) {
-                if(queue.push_by_shallow_copy(&i) < sizeof(int)) {
+                if(fifo.push_by_shallow_copy(&i) < sizeof(int)) {
                     log_error("Push failed");
                 }
             }
             for(int i = 0; i <= 20; ++i) {
                 int j = 0;
-                if(queue.pop(&j) < sizeof(int)) {
+                if(fifo.pop(&j) < sizeof(int)) {
                     log_error("Pop failed");
                 } else {
                     log_info("Pop out: %d", j);

@@ -39,7 +39,7 @@ namespace tcp_kit {
         void t2() {
             auto ctl = n(105);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -48,7 +48,7 @@ namespace tcp_kit {
         void t3() {
             auto ctl = n(1, 0, 0);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -57,7 +57,7 @@ namespace tcp_kit {
         void t4() {
             auto ctl = n(1, 1, 0);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -66,7 +66,7 @@ namespace tcp_kit {
         void t5() {
             auto ctl = n(2, 1, 0);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -75,7 +75,7 @@ namespace tcp_kit {
         void t6() {
             auto ctl = n(2, 0, 1);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -84,7 +84,7 @@ namespace tcp_kit {
         void t7() {
             auto ctl = n(3, 1, 0);
             log_info("n_acceptor: %d | n_ev_handler: %d | n_handler: %d",
-                     N_ACCEPTOR,
+                     0,
                      (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
                      ctl & HANDLER_CAPACITY);
         }
@@ -148,11 +148,11 @@ namespace tcp_kit {
                 int a = 1;
                 int b = 2;
             };
-            vector<lock_free_fifo<a_struct, 3>> vec(3);
+            lock_free_fifo<a_struct> fifo(3);
             a_struct as;
-            vec[0].push_by_shallow_copy(&as);
+            fifo.push_by_shallow_copy(&as);
             a_struct as_out;
-            vec[0].pop(&as_out);
+            fifo.pop(&as_out);
             log_info("a: %d, b: %d", as_out.a, as_out.b);
         }
 

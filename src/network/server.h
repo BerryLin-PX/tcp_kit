@@ -10,7 +10,7 @@
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 
-#define N_ACCEPTOR 1
+//#define N_ACCEPTOR 1
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
@@ -26,7 +26,7 @@
 
 namespace tcp_kit {
 
-    void acceptor_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
+    void listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
     void read_callback(bufferevent *bev, void *arg);
     void write_callback(bufferevent *bev, void *arg);
     void event_callback(bufferevent *bev, short what, void *arg);
@@ -67,7 +67,7 @@ namespace tcp_kit {
 
         virtual void when_ready();
 
-        friend void acceptor_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
+        friend void listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
         friend void read_callback(bufferevent *bev, void *arg);
         friend void write_callback(bufferevent *bev, void *arg);
         friend void event_callback(bufferevent *bev, short what, void *arg);
@@ -77,23 +77,48 @@ namespace tcp_kit {
         server& operator=(const server&) = delete;
 
     private:
-        struct _new_connection {
-            sockaddr* address;
-            int       socklen;
-            socket_t  fd;
+        class handler;
+
+        class ev_handler {
+        public:
+            vector<handler*> handlers;
+
+            friend void listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
+            friend void read_callback(bufferevent *bev, void *arg);
+            friend void write_callback(bufferevent *bev, void *arg);
+            friend void event_callback(bufferevent *bev, short what, void *arg);
+
+            ev_handler();
+            ~ev_handler();
+            void bind_and_run(server* server_ptr);
+
+        private:
+            server*         _server;
+            event_base*     _ev_base;
+            mutex           _mutex;
+            evconnlistener* _evc;
+
         };
 
-        struct _handler {
+        class handler {
+        public:
+            using msg = int;
+            using b_fifo  = blocking_fifo<msg>;
+            using lf_fifo = lock_free_fifo<msg>;
+
+            handler() = default;
+            ~handler();
+            void bind_and_run(server* server_ptr);
+
+            bool compete;
             atomic<void*> fifo;
+
+        private:
+            server* _server;
+
         };
 
-        struct _ev_handler {
-            event_base* ev_base;
-            lock_free_fifo<_new_connection, 3> new_conn_queue;
-            vector<_handler*> handlers;
-        };
-
-        static thread_local void* _this_thread;
+//        static thread_local void* _this_thread;
 
         static constexpr uint32_t NEW        = 0;
         static constexpr uint32_t READY      = 1 << STATE_OFFSET;
@@ -103,18 +128,15 @@ namespace tcp_kit {
         static constexpr uint32_t TERMINATED = 5 << STATE_OFFSET;
 
         // [4][14][14]: run_state | n_of_acceptor | n_of_ev_handler | n_of_handler
-        atomic<uint32_t>            _ctl;
-        mutex                       _mutex;
-        condition_variable_any      _state;
-        atomic<uint32_t>            _ready_threads;
-        unique_ptr<thread_pool>     _threads;
-        event_base*                 _acceptor_ev_base;
-        vector<_ev_handler>         _ev_handlers;
-        vector<_handler>            _handlers;
+        atomic<uint32_t>          _ctl;
+        mutex                     _mutex;
+        condition_variable_any    _state;
+        atomic<uint32_t>          _ready_threads;
+        unique_ptr<thread_pool>   _threads;
+        event_base*               _acceptor_ev_base;
+        vector<ev_handler>        _ev_handlers;
+        vector<handler>           _handlers;
 
-        void acceptor();
-        void ev_handler(_ev_handler& t);
-        void handler(_handler& t);
         void try_ready();
         void trans_to(uint32_t rs);
         void wait_at_least(uint32_t rs);

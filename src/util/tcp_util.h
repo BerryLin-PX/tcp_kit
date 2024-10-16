@@ -10,15 +10,13 @@
 
 namespace tcp_kit {
 
-    typedef sockaddr_in sa_in;
-
     socket_t open_socket();
 
-    sa_in cons_sa_in(uint16_t port);
+    sockaddr_in socket_address(uint16_t port);
 
-    int bind_socket(socket_t socket_fd, sa_in* addr);
+    int bind_socket(socket_t socket_fd, sockaddr_in* addr);
 
-    int accept_conn(socket_t socket_fd, sa_in* addr, socklen_t* len);
+    int accept_conn(socket_t socket_fd, sockaddr_in* addr, socklen_t* len);
 
     int listen_socket(socket_t socket_fd);
 
