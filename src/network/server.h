@@ -20,8 +20,8 @@
 #define EV_HANDLER_OFFSET        14
 #define STATE_OFFSET             28
 
-#ifndef N_FIFO_SIZE_OF_TASK
-#define N_FIFO_SIZE_OF_TASK      3
+#ifndef TASK_FIFO_SIZE
+#define TASK_FIFO_SIZE      3
 #endif
 
 namespace tcp_kit {
@@ -31,18 +31,16 @@ namespace tcp_kit {
     void write_callback(bufferevent *bev, void *arg);
     void event_callback(bufferevent *bev, short what, void *arg);
 
-    // n_acceptor   -> 接收连接线程数(始终为 1, 多个线程不会提高效率且产生竞争与增加线程切换)
     // n_ev_handler -> 处理连接事件线程数(一般是读、写)
     // n_handler    -> 处理消息线程数
     //
     // 默认情况下(CPU 核心数 > 1):
-    //      acceptor   线程数量为 1
-    //      ev_handler 线程数量为目标值 * 2, 目标是占 CPU 核心数的 30% (四舍五入) // TODO 权衡最优占比
+    //      ev_handler 线程数量为目标值 * 2, 目标是占 CPU 核心数的 30% (四舍五入)
     //      handler    线程数量为 (CPU核心数 - 1 - ev_handler目标值), 且最少为 1
     //
-    // 假设 CPU 核心数是 4, acceptor 线程数为 1, ev_handler 线程数为 1 * 2 = 2, handler 线程数为 4 - 1 - 1 = 2
+    // 假设 CPU 核心数是 4, ev_handler 线程数为 1 * 2 = 2, handler 线程数为 4 - 1 = 3
     //
-    // ** 当 CPU 核心数为 1 时, acceptor 线程数量为 1, ev_handler 与 handler 共用一个线程 **
+    // ** 当 CPU 核心数为 1 时, ev_handler 与 handler 共用一个线程 **
     // 默认的线程配置综合运行效率与各类角色的业务逻辑 (ev_handler 属于 IO 密集型, handler 属于 CPU 密集型) 考虑, 尽量避免线程上下文切换
 
     // NEW        | server 的初始状态

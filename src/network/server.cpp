@@ -2,6 +2,7 @@
 #include <network/server.h>
 #include <util/system_util.h>
 #include <logger/logger.h>
+#include <event2/bufferevent.h>
 
 namespace tcp_kit {
 
@@ -38,7 +39,6 @@ namespace tcp_kit {
             uint16_t expect = (uint16_t) ((n_of_processor * EV_HANDLER_EXCEPT_SCALE) + 0.5);
             if(!n_ev_handler) n_ev_handler = expect << 1;
             if(!n_handler) n_handler = n_of_processor - 1 - expect;
-            if(!n_handler) n_handler = 1;
         } else if(n_ev_handler || n_handler) {
             if(!n_ev_handler) n_ev_handler = 1;
             if(!n_handler) n_handler = 1;
@@ -81,7 +81,7 @@ namespace tcp_kit {
                     }
                     _handlers[i].compete = end - start > 1;
                     _threads->execute(&server::handler::bind_and_run, &_handlers[i], this);
-                    log_debug("n(th) of handler: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
+                    log_debug("N(th) of handler: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
             wait_at_least(READY);
@@ -130,8 +130,7 @@ namespace tcp_kit {
     void server::handler::bind_and_run(server* server_ptr) {
         assert(server_ptr);
         _server = server_ptr;
-        fifo.store(compete ? (void*) new b_fifo(N_FIFO_SIZE_OF_TASK)
-                              : (void*) new lf_fifo(N_FIFO_SIZE_OF_TASK),
+        fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
                   memory_order_relaxed);
         _server->try_ready();
         _server->wait_at_least(RUNNING);

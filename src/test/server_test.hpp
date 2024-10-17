@@ -12,8 +12,8 @@ namespace tcp_kit {
             if(n_of_processor != 1) {
                 uint16_t expect = (uint16_t) ((n_of_processor * scale) + 0.5);
                 if(!n_ev_handler) n_ev_handler = expect << 1;
-                if(!n_handler) n_handler = n_of_processor - 1 - expect;
-                if(!n_handler) n_handler = 1;
+                if(!n_handler) n_handler = n_of_processor - expect;
+//                if(!n_handler) n_handler = 1;
             } else if(n_ev_handler | n_handler) {
                 if(!n_ev_handler) n_ev_handler = 1;
                 if(!n_handler) n_handler = 1;
