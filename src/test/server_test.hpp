@@ -1,5 +1,6 @@
 #include <logger/logger.h>
-#include <network/server.h>
+#include <network/server.hpp>
+#include <network/protocol/generic.hpp>
 
 namespace tcp_kit {
 
@@ -29,7 +30,7 @@ namespace tcp_kit {
 
         void t1() {
 //            server basic_svr = basic_server(3000);
-//            basic_svr.bind("sum", [](int a, int b){
+//            basic_svr.init("sum", [](int a, int b){
 //                return a + b;
 //            });
 //            basic_svr.start();
@@ -98,18 +99,18 @@ namespace tcp_kit {
             t7();
         }
 
-        // 当 ev_handler 线程数不等于 handler 线程数时, 就认为存在竞争, 所以应尽量让他们的数量相等
-        // 1. ev_handler 线程数量多于 handler 数量时:
-        //      假设 ev_handler: 4, handler:3 那么首先三个 ev_handler 线程各自被分配一个handler 线程,
-        //      多出来的一个 ev_handler 线程将轮询将任务分配给这三个 handler 线程, 相当于在一个 handler 上
-        //      的同一时刻可能存在两个线程竞争, 而另外两个线程不受到影响. 在 ev_handler 不过多大于 handler
+        // 当 ev_handler_base 线程数不等于 handler_base 线程数时, 就认为存在竞争, 所以应尽量让他们的数量相等
+        // 1. ev_handler_base 线程数量多于 handler_base 数量时:
+        //      假设 ev_handler_base: 4, handler_base:3 那么首先三个 ev_handler_base 线程各自被分配一个handler 线程,
+        //      多出来的一个 ev_handler_base 线程将轮询将任务分配给这三个 handler_base 线程, 相当于在一个 handler_base 上
+        //      的同一时刻可能存在两个线程竞争, 而另外两个线程不受到影响. 在 ev_handler_base 不过多大于 handler_base
         //      的前提下, 竞争是相当小的
-        // 2. ev_handler 线程数量少于 handler 数量时:
-        //      假设 ev_handler: 60, handler:69 同样首先为每个 ev_handler 线程各自被分配一个handler 线程,
-        //      handler 比 ev_handler 多出来的 9 个线程将按照 60 / 9 ≈ 6.667 向上取整 => 7 个线程分配一个
-        //      多出来的 handler 线程, 也就是 8 组 7 个 ev_handler 线程分配8个多出来的 handler 线程, 剩下
-        //      4 个 ev_handler 线程分配第九个 handler 线程, 由于 ev_handler 的任务优先递交给自己独占的
-        //      handler 线程, 当这个线程无法处理时, 才分配给那个额外的 handler 线程, 所以即便 7 个线程有可能
+        // 2. ev_handler_base 线程数量少于 handler_base 数量时:
+        //      假设 ev_handler_base: 60, handler_base:69 同样首先为每个 ev_handler_base 线程各自被分配一个handler 线程,
+        //      handler_base 比 ev_handler_base 多出来的 9 个线程将按照 60 / 9 ≈ 6.667 向上取整 => 7 个线程分配一个
+        //      多出来的 handler_base 线程, 也就是 8 组 7 个 ev_handler_base 线程分配8个多出来的 handler_base 线程, 剩下
+        //      4 个 ev_handler_base 线程分配第九个 handler_base 线程, 由于 ev_handler_base 的任务优先递交给自己独占的
+        //      handler_base 线程, 当这个线程无法处理时, 才分配给那个额外的 handler_base 线程, 所以即便 7 个线程有可能
         //      会在这个额外的线程产生竞争, 达到最大竞争的可能性也是很小的
         // 在测试的 CPU 核心数 1-100 的数量里,
         void t9() {
@@ -157,9 +158,10 @@ namespace tcp_kit {
         }
 
         void t12() {
-            server svr;
-            svr.start();
+//            server<generic> svr;
+//            svr.start();
         }
+
 
     }
 

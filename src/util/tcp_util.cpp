@@ -55,7 +55,7 @@ namespace tcp_kit {
 
     int bind_socket(socket_t socket_fd, sockaddr_in* address) {
         int ret = ::bind(socket_fd, (struct sockaddr*) address, sizeof(sockaddr_in));
-        if(ret < 0) log_error("socket bind failed: %d", ret);
+        if(ret < 0) log_error("socket init failed: %d", ret);
         return ret;
     }
 
