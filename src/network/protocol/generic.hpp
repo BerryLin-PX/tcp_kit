@@ -9,9 +9,11 @@
 
 namespace tcp_kit {
 
+    // 作为 server 的通用协议实现
+    //
     class generic {
     public:
-        class ev_handler: ev_handler_base<generic> {
+        class ev_handler: public ev_handler_base {
         public:
             ev_handler();
             ~ev_handler();
@@ -19,20 +21,27 @@ namespace tcp_kit {
             static void listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
             static void read_callback(bufferevent *bev, void *arg);
             static void write_callback(bufferevent *bev, void *arg);
-            static  void event_callback(bufferevent *bev, short what, void *arg);
+            static void event_callback(bufferevent *bev, short what, void *arg);
+
+            void bind_and_run(server_base *server_ptr) override;
 
         protected:
+            server<generic>* _server;
+            event_base*      _ev_base;
+            mutex            _mutex;
+            evconnlistener*  _evc;
+
             void bind() override;
             void run() override;
 
         };
 
-        class handler: handler_base<generic> {
+        class handler: public handler_base {
         public:
             handler() = default;
-            ~handler();
 
         protected:
+
             void init() override;
             void run() override;
 
@@ -71,6 +80,11 @@ namespace tcp_kit {
         event_base_free(_ev_base);
     }
 
+    void generic::ev_handler::bind_and_run(server_base *server_ptr) {
+        _server = static_cast<server<generic>*>(server_ptr);
+        ev_handler_base::bind_and_run(server_ptr);
+    }
+
     void generic::ev_handler::bind() {
         sockaddr_in sin = socket_address(_server->port);
         _evc = evconnlistener_new_bind(
@@ -86,14 +100,8 @@ namespace tcp_kit {
         event_base_dispatch(_ev_base);
     }
 
-    generic::handler::~handler() {
-        if(compete) delete static_cast<b_fifo*>(fifo.load());
-        else        delete static_cast<lf_fifo*>(fifo.load());
-    }
-
     void generic::handler::init() {
-        fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
-                   memory_order_relaxed);
+
     }
 
     void generic::handler::run() {

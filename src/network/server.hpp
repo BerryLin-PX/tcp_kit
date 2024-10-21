@@ -2,8 +2,10 @@
 #define TCP_KIT_SERVER_HPP
 
 #include <cstdint>
+#include <logger/logger.h>
 #include <thread/thread_pool.h>
 #include <util/tcp_util.h>
+#include <util/system_util.h>
 #include <concurrent/blocking_fifo.hpp>
 #include <concurrent/lock_free_fifo.hpp>
 #include <event2/event.h>
@@ -24,47 +26,148 @@
 
 namespace tcp_kit {
 
-    template<typename P>
-    class server;
-
-    template<typename P>
+    class ev_handler_base;
     class handler_base;
 
-    template<typename P>
-    class ev_handler_base {
+    // 该类制定了 server 的状态控制行为
+    //
+    // NEW        | server 的初始状态
+    // READY      | 所有工作线程准备就绪, 随时进入 RUNNING 状态
+    // RUNNING    | server 接收/处理连接
+    // STOPPING   | server 因运行时异常或中断或手动关闭, 此时不再接收连接请求, 所有连接关闭后进入 SHUTDOWN 状态
+    // SHUTDOWN   | 所有连接已断开, 待线程池终结、释放事件循环等资源、日志记录等工作完成后进入 TERMINATED 状态
+    // TERMINATED | server 生命周期结束
+
+    class server_base {
     public:
-        vector<handler_base<P>*> handlers;
-        void bind_and_run(server<P>* server_ptr);
-        virtual void bind() = 0;
-        virtual void run() = 0;
+        server_base();
+        virtual ~server_base() = default;
 
     protected:
-        server<P>*      _server;
-        event_base*     _ev_base;
-        mutex           _mutex;
-        evconnlistener* _evc;
+        friend ev_handler_base;
+        friend handler_base;
+
+        static constexpr uint32_t NEW        = 0;
+        static constexpr uint32_t READY      = 1 << STATE_OFFSET;
+        static constexpr uint32_t RUNNING    = 2 << STATE_OFFSET;
+        static constexpr uint32_t STOPPING   = 3 << STATE_OFFSET;
+        static constexpr uint32_t SHUTDOWN   = 4 << STATE_OFFSET;
+        static constexpr uint32_t TERMINATED = 5 << STATE_OFFSET;
+
+        // [4][14][14]: run_state | n_of_acceptor | n_of_ev_handler | n_of_handler
+        atomic<uint32_t>          _ctl;
+        mutex                     _mutex;
+        condition_variable_any    _state;
+
+        virtual void try_ready() = 0;
+        void trans_to(uint32_t rs);
+        void wait_at_least(uint32_t rs);
+        uint32_t handlers_map();
+        uint32_t ctl_of(uint32_t rs, uint32_t hp);
+        bool run_state_at_least(uint32_t rs);
 
     };
 
-    template<typename P>
+    // ev_handler_base 与 handler_base 作为 Event Handler 与 Handler 的基本实现
+    // 由于它们始终被 server 调度, 所以它们在 bind_and_run() 中与 server 进行状态同步
+    //
+    // bind()/init() 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应该在此处进行初始化
+    // run()         在 server 进入 RUNNING 状态后被调度, 派生类应该在此处做任务处理
+
+    class ev_handler_base {
+    public:
+        vector<handler_base*> handlers;
+        virtual void bind_and_run(server_base* server_ptr);
+        virtual void bind() = 0;
+        virtual void run() = 0;
+        virtual ~ev_handler_base() = default;
+
+    protected:
+        server_base*    _server_base;
+
+    };
+
     class handler_base {
     public:
+
+        void bind_and_run(server_base* server_ptr);
+        virtual void init() = 0;
+        virtual void run() = 0;
+        virtual ~handler_base();
+
+        bool compete;
+
+    protected:
         using msg = int;
         using b_fifo  = blocking_fifo<msg>;
         using lf_fifo = lock_free_fifo<msg>;
 
-        void bind_and_run(server<P>* server_ptr);
-        virtual void init() = 0;
-        virtual void run() = 0;
-
-        bool compete;
+        server_base* _server;
         atomic<void*> fifo;
-
-    protected:
-        server<P>* _server;
 
     };
 
+    server_base::server_base(): _ctl(0) { }
+
+    void server_base::trans_to(uint32_t rs) {
+        unique_lock<mutex> lock(_mutex);
+        _ctl.store(ctl_of(rs, handlers_map()), memory_order_release);
+        _state.notify_all();
+    }
+
+    void server_base::wait_at_least(uint32_t rs) {
+        unique_lock<mutex> lock(_mutex);
+        while(!run_state_at_least(rs)) {
+            interruption_point();
+            interruptible_wait(_state, lock);
+            interruption_point();
+        }
+    }
+
+    inline uint32_t server_base::handlers_map() {
+        return _ctl & ((1 << STATE_OFFSET) - 1);
+    }
+
+    inline uint32_t server_base::ctl_of(uint32_t rs, uint32_t hp) {
+        return rs | hp;
+    }
+
+    inline bool server_base::run_state_at_least(uint32_t rs) {
+        return _ctl.load(memory_order_acquire) >= rs;
+    }
+
+    void ev_handler_base::bind_and_run(server_base* server_ptr) {
+        assert(server_ptr);
+        _server_base = server_ptr;
+        bind();
+        _server_base->try_ready();
+        _server_base->wait_at_least(server_base::RUNNING);
+        log_debug("Event handler_base running...");
+        run();
+    }
+
+    void handler_base::bind_and_run(server_base* server_ptr) {
+        assert(server_ptr);
+        _server = server_ptr;
+        fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
+                   memory_order_relaxed);
+        init();
+        _server->try_ready();
+        _server->wait_at_least(server_base::RUNNING);
+        log_debug("Handler running...");
+        run();
+    }
+
+    handler_base::~handler_base() {
+        if(compete) delete static_cast<b_fifo*>(fifo.load());
+        else        delete static_cast<lf_fifo*>(fifo.load());
+    }
+
+    // 模版参数 P 代表协议(Protocol), 因此可以将 server 指定为任意协议实现, 如: server<generic> svr;
+    // P 必须满足以下条件:
+    //   1: P 拥有子类 ev_handler 且派生于 ev_handler_base 类
+    //   2: P 拥有子类 handler    且派生于 handler 类
+    //
     // n_ev_handler -> 处理连接事件线程数(一般是读、写)
     // n_handler    -> 处理消息线程数
     //
@@ -77,20 +180,17 @@ namespace tcp_kit {
     // ** 当 CPU 核心数为 1 时, ev_handler_base 与 handler_base 共用一个线程 **
     // 默认的线程配置综合运行效率与各类角色的业务逻辑 (ev_handler_base 属于 IO 密集型, handler_base 属于 CPU 密集型) 考虑, 尽量避免线程上下文切换
 
-    // NEW        | server 的初始状态
-    // READY      | 所有工作线程准备就绪, 随时进入 RUNNING 状态
-    // RUNNING    | server 接收/处理连接
-    // STOPPING   | server 因运行时异常或中断或手动关闭, 此时不再接收连接请求, 所有连接关闭后进入 SHUTDOWN 状态
-    // SHUTDOWN   | 所有连接已断开, 待线程池终结、释放事件循环等资源、日志记录等工作完成后进入 TERMINATED 状态
-    // TERMINATED | server 生命周期结束
-
     // 生命周期函数:
     //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
 
     template<typename P>
-    class server {
+    class server: public server_base {
 
-//    static_assert(std::is_base_of<ev_handler_base<P>, typename P::ev_handler>::value_type , "");
+    using ev_handler_t = typename P::ev_handler;
+    using handler_t    = typename P::handler;
+
+    static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "P::ev_handler must be derived from ev_handler_base");
+    static_assert(std::is_base_of<handler_base, handler_t>::value , "P::handler must be derived from handler_base");
 
     public:
         const uint16_t port;
@@ -102,37 +202,21 @@ namespace tcp_kit {
 
         virtual void when_ready();
 
-        friend class P::ev_handler;
-        friend class P::handler;
+        friend ev_handler_t;
+        friend handler_t;
 
         server(const server&) = delete;
         server(server&&) = delete;
         server& operator=(const server&) = delete;
 
     private:
-        static constexpr uint32_t NEW        = 0;
-        static constexpr uint32_t READY      = 1 << STATE_OFFSET;
-        static constexpr uint32_t RUNNING    = 2 << STATE_OFFSET;
-        static constexpr uint32_t STOPPING   = 3 << STATE_OFFSET;
-        static constexpr uint32_t SHUTDOWN   = 4 << STATE_OFFSET;
-        static constexpr uint32_t TERMINATED = 5 << STATE_OFFSET;
+        atomic<uint32_t>          _ready_threads;
+        unique_ptr<thread_pool>   _threads;
+        event_base*               _acceptor_ev_base;
+        vector<ev_handler_t>      _ev_handlers;
+        vector<handler_t>         _handlers;
 
-        // [4][14][14]: run_state | n_of_acceptor | n_of_ev_handler | n_of_handler
-        atomic<uint32_t>           _ctl;
-        mutex                      _mutex;
-        condition_variable_any     _state;
-        atomic<uint32_t>           _ready_threads;
-        unique_ptr<thread_pool>    _threads;
-        event_base*                _acceptor_ev_base;
-        vector<ev_handler_base<P>> _ev_handlers;
-        vector<handler_base<P>>    _handlers;
-
-        void try_ready();
-        void trans_to(uint32_t rs);
-        void wait_at_least(uint32_t rs);
-        uint32_t handlers_map();
-        uint32_t ctl_of(uint32_t rs, uint32_t hp);
-        bool run_state_at_least(uint32_t rs);
+        void try_ready() override;
         uint16_t n_of_ev_handler();
         uint16_t n_of_handler();
 
@@ -168,20 +252,20 @@ namespace tcp_kit {
         _threads = make_unique<thread_pool>(n_thread,n_thread,0l,
                                             make_unique<blocking_fifo<runnable>>(n_thread));
         if(n_ev_handler) {
-            _handlers = vector<handler_base<P>>(n_handler);
-            _ev_handlers = vector<ev_handler_base<P>>(n_ev_handler);
+            _ev_handlers = vector<ev_handler_t>(n_ev_handler);
+            _handlers = vector<handler_t>(n_handler);
             for(uint16_t i = 0; i < max(n_ev_handler, n_handler); ++i) {
                 if(i < min(n_ev_handler, n_handler)) {
                     _ev_handlers[i].handlers.push_back(&_handlers[i]);
                     _handlers[i].compete = n_ev_handler > n_handler;
-                    _threads->execute(&P::ev_handler::bind_and_run, &_ev_handlers[i], this);
-                    _threads->execute(&P::handler::bind_and_run, &_handlers[i], this);
+                    _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
+                    _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
                     log_debug("n(th) of handler_base: %d | fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
                 } else if (i < n_ev_handler) { // ev_handler_base 线程多于 handler_base 时
                     for(uint16_t j = 0; j < n_ev_handler; ++j) {
                         _ev_handlers[i].handlers.push_back(&_handlers[j]);
                     }
-                    _threads->execute(&P::ev_handler::bind_and_run, &_ev_handlers[i], this);
+                    _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
                 } else { // ev_handler_base 线程少于 handler_base 时
                     uint16_t n_share = uint16_t(float(n_ev_handler) / float(n_handler - n_ev_handler) + 0.5);
                     uint16_t start = n_share * (i - n_ev_handler);
@@ -190,7 +274,7 @@ namespace tcp_kit {
                         _ev_handlers[j].handlers.push_back(&_handlers[i]);
                     }
                     _handlers[i].compete = end - start > 1;
-                    _threads->execute(&P::handler::bind_and_run, &_handlers[i], this);
+                    _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
                     log_debug("N(th) of handler_base: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
@@ -205,69 +289,11 @@ namespace tcp_kit {
     template<typename P>
     void server<P>::when_ready() { }
 
-    // Event Handler
-    template<typename P>
-    void ev_handler_base<P>::bind_and_run(server<P>* server_ptr) {
-        assert(server_ptr);
-        _server = server_ptr;
-        bind(server_ptr);
-        _server->try_ready();
-        _server->wait_at_least(server<P>::RUNNING);
-        log_debug("Event handler_base running...");
-        run();
-    }
-
-    // Handler
-    template<typename P>
-    void handler_base<P>::bind_and_run(server<P>* server_ptr) {
-        assert(server_ptr);
-        _server = server_ptr;
-        init(server_ptr);
-        _server->try_ready();
-        _server->wait_at_least(server<P>::RUNNING);
-        log_debug("Handler running...");
-        run();
-    }
-
     template<typename P>
     void server<P>::try_ready() {
         if(++_ready_threads == n_of_ev_handler() + n_of_handler()) {
-            unique_lock<mutex> lock(_mutex);
-            _ctl.store(ctl_of(READY, handlers_map()), memory_order_release);
-            _state.notify_all();
+            trans_to(READY);
         }
-    }
-
-    template<typename P>
-    void server<P>::trans_to(uint32_t rs) {
-        unique_lock<mutex> lock(_mutex);
-        _ctl.store(ctl_of(rs, handlers_map()), memory_order_release);
-        _state.notify_all();
-    }
-
-    template<typename P>
-    void server<P>::wait_at_least(uint32_t rs) {
-        unique_lock<mutex> lock(_mutex);
-        while(!run_state_at_least(rs)) {
-            interruption_point();
-            interruptible_wait(_state, lock);
-            interruption_point();
-        }
-    }
-
-    template<typename P>
-    inline uint32_t server<P>::handlers_map() {
-        return _ctl & ((1 << STATE_OFFSET) - 1);
-    }
-
-    template<typename P>
-    inline uint32_t server<P>::ctl_of(uint32_t rs, uint32_t hp) {
-        return rs | hp;
-    }
-
-    template<typename P>
-    inline bool server<P>::run_state_at_least(uint32_t rs) {
-        return _ctl.load(memory_order_acquire) >= rs;
     }
 
     template<typename P>
