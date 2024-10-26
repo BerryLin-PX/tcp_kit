@@ -11,6 +11,7 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
+#include <network/filter/filter.hpp>
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
@@ -39,6 +40,7 @@ namespace tcp_kit {
     // TERMINATED | server 生命周期结束
 
     class server_base {
+
     public:
         server_base();
         virtual ~server_base() = default;
@@ -70,28 +72,44 @@ namespace tcp_kit {
 
     // ev_handler_base 与 handler_base 作为 Event Handler 与 Handler 的基本实现
     // 由于它们始终被 server 调度, 所以它们在 bind_and_run() 中与 server 进行状态同步
-    //
-    // bind()/init() 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应该在此处进行初始化
-    // run()         在 server 进入 RUNNING 状态后被调度, 派生类应该在此处做任务处理
+    // !!! 请确保在派生类中的构造函数是无参的 !!!
+    // ----------------------------------------------------------------------
+    // init() 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应该在此处进行初始化
+    // run()  在 server 进入 RUNNING 状态后被调度, 派生类应该在此处做任务处理
 
     class ev_handler_base {
+
     public:
         vector<handler_base*> handlers;
-        virtual void bind_and_run(server_base* server_ptr);
-        virtual void bind() = 0;
+
+        void bind_and_run(server_base* server_ptr);
+        virtual void init(server_base* server_ptr) = 0;
         virtual void run() = 0;
+
+        // 实现 filter 可在 socket 的各个生命周期介入
+        // 当任何事件发生, 过滤器依次进入
+        void append_filter(const filter& filter_);
+        void add_filter_before(const filter& what, const filter& filter_);
+        void add_filter_after(const filter& what, const filter& filter_);
+        void check_filter_duplicate(const filter& filter_);
+        void replace_filters(vector<filter>&& filters);
+
         virtual ~ev_handler_base() = default;
 
     protected:
         server_base*    _server_base;
+        vector<filter>  _filters;
+
+        bool invoke_conn_filters(event_context& ctx);
+        void register_read_write_filters(event_context& ctx);
 
     };
 
     class handler_base {
-    public:
 
+    public:
         void bind_and_run(server_base* server_ptr);
-        virtual void init() = 0;
+        virtual void init(server_base* server_ptr) = 0;
         virtual void run() = 0;
         virtual ~handler_base();
 
@@ -139,11 +157,74 @@ namespace tcp_kit {
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server_base = server_ptr;
-        bind();
+        init(server_ptr);
         _server_base->try_ready();
         _server_base->wait_at_least(server_base::RUNNING);
-        log_debug("Event handler_base running...");
+        //log_debug("Event handler_base running...");
         run();
+    }
+
+    void ev_handler_base::append_filter(const filter& filter_) {
+        check_filter_duplicate(filter_);
+        _filters.push_back(move(filter_));
+    }
+
+    void ev_handler_base::add_filter_before(const filter& what, const filter& filter_) {
+        check_filter_duplicate(filter_);
+        auto it = _filters.begin();
+        for (; it != _filters.end(); ++it) {
+            if (*it == what) {
+                break;
+            }
+        }
+        _filters.insert(it, move(filter_));
+    }
+
+    void ev_handler_base::add_filter_after(const filter& what, const filter& filter_) {
+        check_filter_duplicate(filter_);
+        auto it = _filters.begin();
+        for (; it != _filters.end(); ++it) {
+            if (*it == what) {
+                ++it;
+                break;
+            }
+        }
+        _filters.insert(it, std::move(filter_));
+    }
+
+    void ev_handler_base::check_filter_duplicate(const filter& filter_) {
+        for(const filter& f : _filters) {
+            if(f == filter_) {
+                throw invalid_argument("The filter of this type is already present in the filter chain.");
+            }
+        }
+    }
+
+    void ev_handler_base::replace_filters(vector<filter>&& filters) {
+        _filters = vector<filter>();
+        for(const filter& f : filters) {
+            append_filter(f);
+        }
+    }
+
+    bool ev_handler_base::invoke_conn_filters(event_context& ctx) {
+        for(const filter& f : _filters) {
+            if(!f.connect(ctx)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    void ev_handler_base::register_read_write_filters(event_context& ctx) {
+        bufferevent* nested_bev = ctx.bev;
+        for(auto it = _filters.rbegin(); it != _filters.rend(); ++it) {
+            if(it->read || it->write) {
+                nested_bev = bufferevent_filter_new(nested_bev, it->read, it->write, BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
+            }
+        }
+        ctx.bev = nested_bev;
     }
 
     void handler_base::bind_and_run(server_base* server_ptr) {
@@ -151,10 +232,10 @@ namespace tcp_kit {
         _server = server_ptr;
         fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
                    memory_order_relaxed);
-        init();
+        init(server_ptr);
         _server->try_ready();
         _server->wait_at_least(server_base::RUNNING);
-        log_debug("Handler running...");
+        //log_debug("Handler running...");
         run();
     }
 
@@ -183,14 +264,14 @@ namespace tcp_kit {
     // 生命周期函数:
     //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
 
-    template<typename P>
+    template <typename P>
     class server: public server_base {
 
     using ev_handler_t = typename P::ev_handler;
     using handler_t    = typename P::handler;
 
-    static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "P::ev_handler must be derived from ev_handler_base");
-    static_assert(std::is_base_of<handler_base, handler_t>::value , "P::handler must be derived from handler_base");
+    static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "P::ev_handler must be derived from ev_handler_base.");
+    static_assert(std::is_base_of<handler_base, handler_t>::value , "P::handler must be derived from handler_base.");
 
     public:
         const uint16_t port;
@@ -200,36 +281,35 @@ namespace tcp_kit {
                         uint16_t n_handler = 0);
         void start();
 
-        virtual void when_ready();
-
-        friend ev_handler_t;
-        friend handler_t;
-
         server(const server&) = delete;
         server(server&&) = delete;
         server& operator=(const server&) = delete;
 
     private:
+        friend ev_handler_t;
+        friend handler_t;
+
         atomic<uint32_t>          _ready_threads;
         unique_ptr<thread_pool>   _threads;
-        event_base*               _acceptor_ev_base;
         vector<ev_handler_t>      _ev_handlers;
-        vector<handler_t>         _handlers;
+                vector<handler_t>         _handlers;
 
         void try_ready() override;
+        virtual void when_ready();
+
         uint16_t n_of_ev_handler();
         uint16_t n_of_handler();
 
     };
 
-    template<typename P>
+    template <typename P>
     server<P>::server(uint16_t port_, uint16_t n_ev_handler, uint16_t n_handler): port(port_) {
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
-            throw invalid_argument("Illegal Parameter");
+            throw invalid_argument("Illegal Parameter.");
         _ctl |= NEW;
         uint16_t n_of_processor = (uint16_t) numb_of_processor();
         if(n_of_processor != 1) {
-            uint16_t expect = (uint16_t) ((n_of_processor * EV_HANDLER_EXCEPT_SCALE) + 0.5);
+            uint16_t expect = uint16_t((n_of_processor * EV_HANDLER_EXCEPT_SCALE) + 0.5);
             if(!n_ev_handler) n_ev_handler = expect << 1;
             if(!n_handler) n_handler = n_of_processor - 1 - expect;
         } else if(n_ev_handler || n_handler) {
@@ -243,14 +323,13 @@ namespace tcp_kit {
     // 4 - 2 ev_h: [1][2][1,2][1,2]
     // 3 - 5 ev_h: [1,4][2,4][3,5]
     // 30-37
-    template<typename P>
+    template <typename P>
     void server<P>::start() {
         uint16_t n_ev_handler = n_of_ev_handler();
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;
-        log_debug("The server will start %d event handler_base thread(s) and %d handler_base thread(s)", n_ev_handler, n_handler);
-        _threads = make_unique<thread_pool>(n_thread,n_thread,0l,
-                                            make_unique<blocking_fifo<runnable>>(n_thread));
+        //log_debug("The server will start %d event handler_base thread(s) and %d handler_base thread(s)", n_ev_handler, n_handler);
+        _threads = make_unique<thread_pool>(n_thread,n_thread,0l, make_unique<blocking_fifo<runnable>>(n_thread));
         if(n_ev_handler) {
             _ev_handlers = vector<ev_handler_t>(n_ev_handler);
             _handlers = vector<handler_t>(n_handler);
@@ -260,7 +339,7 @@ namespace tcp_kit {
                     _handlers[i].compete = n_ev_handler > n_handler;
                     _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
                     _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    log_debug("n(th) of handler_base: %d | fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
+                    //log_debug("n(th) of handler_base: %d | fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
                 } else if (i < n_ev_handler) { // ev_handler_base 线程多于 handler_base 时
                     for(uint16_t j = 0; j < n_ev_handler; ++j) {
                         _ev_handlers[i].handlers.push_back(&_handlers[j]);
@@ -275,7 +354,7 @@ namespace tcp_kit {
                     }
                     _handlers[i].compete = end - start > 1;
                     _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    log_debug("N(th) of handler_base: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
+                    //log_debug("N(th) of handler_base: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
             wait_at_least(READY);
@@ -286,22 +365,22 @@ namespace tcp_kit {
         }
     }
 
-    template<typename P>
-    void server<P>::when_ready() { }
-
-    template<typename P>
+    template <typename P>
     void server<P>::try_ready() {
         if(++_ready_threads == n_of_ev_handler() + n_of_handler()) {
             trans_to(READY);
         }
     }
 
-    template<typename P>
+    template <typename P>
+    void server<P>::when_ready() { }
+
+    template <typename P>
     inline uint16_t server<P>::n_of_ev_handler() {
         return (_ctl.load(memory_order_relaxed) >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY;
     }
 
-    template<typename P>
+    template <typename P>
     inline uint16_t server<P>::n_of_handler() {
         return _ctl.load(memory_order_relaxed) & HANDLER_CAPACITY;
     }

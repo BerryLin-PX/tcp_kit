@@ -157,51 +157,10 @@ namespace tcp_kit {
             log_info("a: %d, b: %d", as_out.a, as_out.b);
         }
 
-//        template<typename P>
-//        class server;
-//
-//        template<typename P>
-//        class ev_handler_base {
-//            server<P>* _server;
-//        };
-//
-//        template<typename P>
-//        class handler_base {
-//            server<P>* _server;
-//        };
-//
-//        template<typename P>
-//        class server {
-//        public:
-//            using ev_handler_t = typename P::ev_handler;
-//            using handler_t = typename P::handler;
-//
-//            server() {
-//                ev_handler_t ev_handler;
-//                handler_t handler;
-//            }
-//
-//        };
-//
-//        class generic {
-//
-//        public:
-//
-//            class ev_handler: ev_handler_base<generic> {
-//
-//            };
-//
-//            class handler: handler_base<generic> {
-//
-//            };
-//
-//        };
-
         void t12() {
             server<generic> svr;
             svr.start();
         }
-
 
     }
 

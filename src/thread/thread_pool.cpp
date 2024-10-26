@@ -170,7 +170,7 @@ namespace tcp_kit {
         shared_ptr<worker> w;
         try {
             w = make_shared<worker>(this, first_task);
-            log_debug("New worker thread added");
+            //log_debug("New worker thread added");
             shared_ptr<interruptible_thread> t = w->thread;
             if(t) {
                 t->set_runnable([this, w]{ run_worker(w); });
@@ -207,7 +207,7 @@ namespace tcp_kit {
         bool completed_abruptly = true;
         try {
             while(task || (task = get_task())) {
-                log_debug("Thread running");
+                //log_debug("Thread running");
                 w->lock();
                 if ((run_state_at_least(_ctl.load(), STOP) ||
                      (this_thread_interrupt_flag.is_set() &&
@@ -306,7 +306,7 @@ namespace tcp_kit {
     }
 
     void thread_pool::process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly) {
-        log_debug("On worker thread exit");
+        //log_debug("On worker thread exit");
         if(completed_abruptly)
             decrement_worker_count();
         lock_guard<recursive_mutex> main_lock(_mutex);
