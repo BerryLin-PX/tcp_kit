@@ -6,7 +6,7 @@
 #include <mutex>
 #include <utility>
 #include <chrono>
-#include <thread/interruptible_thread.h>
+#include "thread/interruptible_thread.h"
 
 namespace tcp_kit {
 

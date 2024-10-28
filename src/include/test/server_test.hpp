@@ -1,6 +1,6 @@
 #include <logger/logger.h>
-#include <network/server.hpp>
-#include <network/protocol/generic.hpp>
+#include <network/server.h>
+#include <network/protocol/generic.h>
 
 namespace tcp_kit {
 

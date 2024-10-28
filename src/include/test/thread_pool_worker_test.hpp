@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 #include <thread/thread_pool.h>
-#include <concurrent/blocking_fifo.hpp>
+#include "concurrent/blocking_fifo.hpp"
 
 using namespace std;
 using namespace tcp_kit;

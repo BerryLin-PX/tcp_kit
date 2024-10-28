@@ -2,8 +2,8 @@
 #define TCP_KIT_FILTER_H
 
 #include <vector>
-#include <network/event_context.hpp>
 #include <event2/bufferevent.h>
+#include "event_context.h"
 
 namespace tcp_kit {
 
@@ -11,12 +11,12 @@ namespace tcp_kit {
 
     // 同 libevent 中 bufferevent 声明的回调函数 bufferevent_filter_cb:
     // -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    // A callback function to implement a filter for a bufferevent.
+    // A callback function to implement a builtin for a bufferevent.
     //
     // Parameters
     //   @src:   An evbuffer to drain data from.
     //   @dst:   An evbuffer to add data to.
-    //   @limit: A suggested upper bound of bytes to write to dst. The filter may ignore this value, but doing so means that it will overflow the high-water mark associated with dst. -1 means "no limit".
+    //   @limit: A suggested upper bound of bytes to write to dst. The builtin may ignore this value, but doing so means that it will overflow the high-water mark associated with dst. -1 means "no limit".
     //   @mode:  Whether we should write data as may be convenient (BEV_NORMAL), or flush as much data as we can (BEV_FLUSH), or flush as much as we can, possibly including an end-of-stream marker (BEV_FINISH).
     //   @ctx:   A user-supplied pointer.
     //
@@ -54,12 +54,6 @@ namespace tcp_kit {
 
         bool operator==(const filter&) const;
     };
-
-    bool filter::operator==(const filter &filter_) const {
-        return connect == filter_.connect &&
-               read == filter_.read &&
-               write == filter_.write;
-    }
 
 }
 

@@ -2,7 +2,7 @@
 #define TCP_KIT_LOGGER_TEST_H
 
 #include <gtest/gtest.h>
-#include <logger/logger.h>
+#include "include/logger/logger.h"
 
 TEST(logger_tests, level_print) {
     log_debug("Hello %s", "world");

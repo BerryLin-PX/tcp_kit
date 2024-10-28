@@ -19,7 +19,7 @@ file(GLOB_RECURSE ALL_FILES
 
 add_executable(tcp_kit ${ALL_FILES})
 
-include_directories(src)
+include_directories(src/include)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${LIBEVENT_INCLUDE_DIR})
 

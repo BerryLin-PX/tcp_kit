@@ -1,4 +1,4 @@
-#include <logger/logger.h>
+#include "logger/logger.h"
 #include <unistd.h>
 #include <time.h>
 #include <utility>
@@ -25,7 +25,11 @@ void log(uint8_t level, const char* file, uint32_t line, const char* fmt, ...) {
         vsprintf(log_str.get() + base_msg_length, fmt, args);
         log_str[log_length] = '\n';
         log_str[log_length + 1] = '\0';
-        printf("%s", log_str.get());
+        if(level != LOG_ERROR) {
+            printf("%s", log_str.get());
+        } else {
+            fprintf(stderr, "%s", log_str.get());
+        }
     }
 }
 
