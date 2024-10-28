@@ -9,6 +9,13 @@ namespace tcp_kit {
 
     namespace filters {
 
+    pthread_mutex_t* ssl_ctx_guard::ssl_locks = nullptr;
+    int ssl_ctx_guard::ssl_num_locks = 0;
+    ssl_ctx_guard ssl_ctx_guard::singleton;
+
+#define SSL_PKEY_FILE "/Users/linruixin/Desktop/pkey" // TODO
+#define SSL_CERT_FILE "/Users/linruixin/Desktop/cert" // TODO
+
 #if OPENSSL_VERSION_NUMBER < 0x10000000L
         static unsigned long get_thread_id_cb() {
             return _SSLtid;
@@ -28,8 +35,8 @@ namespace tcp_kit {
                 exit(EXIT_FAILURE);
             }
             ctx = SSL_CTX_new(SSLv23_server_method());
-            if (! SSL_CTX_use_certificate_chain_file(ctx, "cert") ||
-                ! SSL_CTX_use_PrivateKey_file(ctx, "pkey", SSL_FILETYPE_PEM)) {
+            if (! SSL_CTX_use_certificate_chain_file(ctx, SSL_CERT_FILE) ||
+                ! SSL_CTX_use_PrivateKey_file(ctx, SSL_PKEY_FILE, SSL_FILETYPE_PEM)) {
                 log_error("Couldn't read 'pkey' or 'cert' file.  To generate a key\n"
                      "and self-signed certificate, run:\n"
                      "  openssl genrsa -out pkey 2048\n"
@@ -74,7 +81,7 @@ namespace tcp_kit {
             SSL_CTX_free(ctx);
         }
 
-        bool conn_filter(event_context& ctx) {
+        bool connect(event_context& ctx) {
             bufferevent* ssl_bev = bufferevent_openssl_filter_new(bufferevent_get_base(ctx.bev),
                                                                   ctx.bev,
                                                                   SSL_new(ssl_ctx_guard::singleton.ctx),

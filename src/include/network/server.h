@@ -101,7 +101,7 @@ namespace tcp_kit {
         vector<filter>  _filters;
 
         bool invoke_conn_filters(event_context& ctx);
-        void register_read_write_filters(event_context& ctx);
+        bool register_read_write_filters(event_context& ctx);
 
     };
 

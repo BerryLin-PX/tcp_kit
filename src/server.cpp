@@ -1,4 +1,4 @@
-#include "network/server.h"
+#include <network/server.h>
 
 namespace tcp_kit {
 
@@ -86,7 +86,7 @@ namespace tcp_kit {
 
     bool ev_handler_base::invoke_conn_filters(event_context& ctx) {
         for(const filter& f : _filters) {
-            if(!f.connect(ctx)) {
+            if(f.connect && !f.connect(ctx)) {
                 return false;
             }
         }
@@ -94,14 +94,21 @@ namespace tcp_kit {
     }
 
 
-    void ev_handler_base::register_read_write_filters(event_context& ctx) {
-        bufferevent* nested_bev = ctx.bev;
+    bool ev_handler_base::register_read_write_filters(event_context& ctx) {
         for(auto it = _filters.rbegin(); it != _filters.rend(); ++it) {
             if(it->read || it->write) {
-                nested_bev = bufferevent_filter_new(nested_bev, it->read, it->write, BEV_OPT_CLOSE_ON_FREE, nullptr, &ctx);
+                bufferevent* nested_bev = bufferevent_filter_new(ctx.bev, it->read,
+                                                                 it->write,BEV_OPT_CLOSE_ON_FREE,
+                                                                 nullptr, &ctx);
+                if(nested_bev) {
+                    ctx.bev = nested_bev;
+                } else {
+                    log_error("Failed to register filter with index [%d]", distance(_filters.rbegin(), it));
+                    return false;
+                }
             }
         }
-        ctx.bev = nested_bev;
+        return true;
     }
 
     void handler_base::bind_and_run(server_base* server_ptr) {
