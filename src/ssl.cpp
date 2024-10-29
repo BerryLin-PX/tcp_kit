@@ -81,19 +81,21 @@ namespace tcp_kit {
             SSL_CTX_free(ctx);
         }
 
-        bool connect(event_context& ctx) {
-            bufferevent* ssl_bev = bufferevent_openssl_filter_new(bufferevent_get_base(ctx.bev),
-                                                                  ctx.bev,
+        bool ssl_connect(event_context* ctx) {
+            bufferevent* ssl_bev = bufferevent_openssl_filter_new(bufferevent_get_base(ctx->bev),
+                                                                  ctx->bev,
                                                                   SSL_new(ssl_ctx_guard::singleton.ctx),
                                                                   BUFFEREVENT_SSL_ACCEPTING,
                                                                   BEV_OPT_CLOSE_ON_FREE);
             if(ssl_bev) {
-                ctx.bev = ssl_bev;
+                ctx->bev = ssl_bev;
             } else {
                 log_error("Failed to create the SSL filter");
             }
             return ssl_bev != nullptr;
         }
+
+        const filter ssl = {ssl_connect, nullptr, nullptr};
 
     }
 

@@ -35,9 +35,9 @@ namespace tcp_kit {
 
         };
 
-        bool connect(event_context& ctx);
+        bool ssl_connect(event_context* ctx);
 
-        extern const filter ssl = {connect, nullptr, nullptr};
+        extern const filter ssl;
 
     }
 

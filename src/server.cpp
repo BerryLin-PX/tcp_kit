@@ -31,22 +31,12 @@ namespace tcp_kit {
         return _ctl.load(memory_order_acquire) >= rs;
     }
 
-    void ev_handler_base::bind_and_run(server_base* server_ptr) {
-        assert(server_ptr);
-        _server_base = server_ptr;
-        init(server_ptr);
-        _server_base->try_ready();
-        _server_base->wait_at_least(server_base::RUNNING);
-        //log_debug("Event handler_base running...");
-        run();
-    }
-
-    void ev_handler_base::append_filter(const filter& filter_) {
+    void server_base::append_filter(const filter& filter_) {
         check_filter_duplicate(filter_);
         _filters.push_back(move(filter_));
     }
 
-    void ev_handler_base::add_filter_before(const filter& what, const filter& filter_) {
+    void server_base::add_filter_before(const filter& what, const filter& filter_) {
         check_filter_duplicate(filter_);
         auto it = _filters.begin();
         for (; it != _filters.end(); ++it) {
@@ -54,10 +44,10 @@ namespace tcp_kit {
                 break;
             }
         }
-        _filters.insert(it, move(filter_));
+        _filters.insert(it, filter_);
     }
 
-    void ev_handler_base::add_filter_after(const filter& what, const filter& filter_) {
+    void server_base::add_filter_after(const filter& what, const filter& filter_) {
         check_filter_duplicate(filter_);
         auto it = _filters.begin();
         for (; it != _filters.end(); ++it) {
@@ -66,10 +56,10 @@ namespace tcp_kit {
                 break;
             }
         }
-        _filters.insert(it, std::move(filter_));
+        _filters.insert(it, filter_);
     }
 
-    void ev_handler_base::check_filter_duplicate(const filter& filter_) {
+    void server_base::check_filter_duplicate(const filter& filter_) {
         for(const filter& f : _filters) {
             if(f == filter_) {
                 throw invalid_argument("The builtin of this type is already present in the builtin chain.");
@@ -77,15 +67,28 @@ namespace tcp_kit {
         }
     }
 
-    void ev_handler_base::replace_filters(vector<filter>&& filters) {
+    void server_base::replace_filters(vector<filter>&& filters) {
         _filters = vector<filter>();
         for(const filter& f : filters) {
             append_filter(f);
         }
     }
 
-    bool ev_handler_base::invoke_conn_filters(event_context& ctx) {
-        for(const filter& f : _filters) {
+    // -----------------------------------------------------------------------------------------------------------------
+
+    void ev_handler_base::bind_and_run(server_base* server_ptr) {
+        assert(server_ptr);
+        _server_base = server_ptr;
+        _filters = &_server_base->_filters;
+        init(server_ptr);
+        _server_base->try_ready();
+        _server_base->wait_at_least(server_base::RUNNING);
+        //log_debug("Event handler_base running...");
+        run();
+    }
+
+    bool ev_handler_base::invoke_conn_filters(event_context* ctx) {
+        for(const filter& f : *_filters) {
             if(f.connect && !f.connect(ctx)) {
                 return false;
             }
@@ -93,17 +96,16 @@ namespace tcp_kit {
         return true;
     }
 
-
-    bool ev_handler_base::register_read_write_filters(event_context& ctx) {
-        for(auto it = _filters.rbegin(); it != _filters.rend(); ++it) {
+    bool ev_handler_base::register_read_write_filters(event_context* ctx) {
+        for(auto it = _filters->begin(); it != _filters->end(); ++it) {
             if(it->read || it->write) {
-                bufferevent* nested_bev = bufferevent_filter_new(ctx.bev, it->read,
+                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,
                                                                  it->write,BEV_OPT_CLOSE_ON_FREE,
                                                                  nullptr, &ctx);
                 if(nested_bev) {
-                    ctx.bev = nested_bev;
+                    ctx->bev = nested_bev;
                 } else {
-                    log_error("Failed to register filter with index [%d]", distance(_filters.rbegin(), it));
+                    log_error("Failed to register filter with index [%d]", distance(_filters->begin(), it));
                     return false;
                 }
             }
@@ -111,11 +113,13 @@ namespace tcp_kit {
         return true;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------
+
     void handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server = server_ptr;
-        fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
-                   memory_order_relaxed);
+        _fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
+                    memory_order_relaxed);
         init(server_ptr);
         _server->try_ready();
         _server->wait_at_least(server_base::RUNNING);
@@ -124,8 +128,8 @@ namespace tcp_kit {
     }
 
     handler_base::~handler_base() {
-        if(compete) delete static_cast<b_fifo*>(fifo.load());
-        else        delete static_cast<lf_fifo*>(fifo.load());
+        if(compete) delete static_cast<b_fifo*>(_fifo.load());
+        else        delete static_cast<lf_fifo*>(_fifo.load());
     }
 
 }

@@ -1,6 +1,7 @@
 #include <logger/logger.h>
 #include <network/server.h>
 #include <network/protocol/generic.h>
+#include <network/builtin/string_msg.h>
 
 namespace tcp_kit {
 
@@ -159,6 +160,13 @@ namespace tcp_kit {
 
         void t12() {
             server<generic> svr;
+            svr.start();
+        }
+
+
+        void t13() {
+            server<generic> svr;
+            svr.append_filter(filters::string_msg);
             svr.start();
         }
 

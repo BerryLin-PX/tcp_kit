@@ -11,9 +11,9 @@ namespace tcp_kit {
 
     namespace system_util_test {
 
-    void t1() {
-        log_info("%d", numb_of_processor());
-    }
+        void t1() {
+            log_info("%d", numb_of_processor());
+        }
 
     }
 

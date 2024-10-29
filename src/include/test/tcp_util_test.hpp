@@ -227,6 +227,59 @@ namespace tcp_kit {
             bufferevent_free(bev_final);
             event_base_free(base);
         }
+
+        static enum bufferevent_filter_result
+        first_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, bufferevent_flush_mode mode, void *ctx) {
+            log_info("First filter");
+            char buf[1024];
+            int n;
+            while ((n = evbuffer_remove(src, buf, sizeof(buf))) > 0) {
+                for (int i = 0; i < n; i++) {
+                    buf[i] = toupper(buf[i]);
+                }
+                evbuffer_add(dst, buf, n);
+            }
+            return BEV_OK;
+        }
+
+        static enum bufferevent_filter_result
+        second_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, bufferevent_flush_mode mode, void *ctx) {
+            log_info("Second filter");
+            char buf[1024];
+            int n;
+            while ((n = evbuffer_remove(src, buf, sizeof(buf))) > 0) {
+                for (int i = 0; i < n; i++) {
+                    if (buf[i] == ' ') {
+                        buf[i] = '_';
+                    }
+                }
+                evbuffer_add(dst, buf, n);
+            }
+            return BEV_OK;
+        }
+
+        void t5_accept_callback(struct evconnlistener *listener, socket_t fd, struct sockaddr *address, int socklen, void *arg) {
+            struct event_base *ev_base = (struct event_base *)arg;
+            struct bufferevent *bev = bufferevent_socket_new(ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+            struct bufferevent *filtered_bev_1 = bufferevent_filter_new(
+                    bev, first_filter, nullptr, BEV_OPT_CLOSE_ON_FREE, nullptr, nullptr);
+            struct bufferevent *filtered_bev_2 = bufferevent_filter_new(
+                    filtered_bev_1, second_filter, nullptr, BEV_OPT_CLOSE_ON_FREE, nullptr, nullptr);
+            bufferevent_setcb(filtered_bev_2, nullptr, nullptr, nullptr, nullptr);
+            bufferevent_enable(filtered_bev_2, EV_READ | EV_WRITE);
+        }
+
+        void t5() {
+            auto address = socket_address(3000);
+            auto *ev_base = event_base_new();
+            auto *ev_listener = evconnlistener_new_bind(ev_base,t5_accept_callback,ev_base,
+                                                        LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, 10,
+                                                        (struct sockaddr *)&address,sizeof(sockaddr_in));
+            event_base_dispatch(ev_base);
+            evconnlistener_free(ev_listener);
+            event_base_free(ev_base);
+        }
+
     }
 
 }

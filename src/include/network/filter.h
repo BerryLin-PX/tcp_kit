@@ -42,7 +42,7 @@ namespace tcp_kit {
                                                             ev_ssize_t dst_limit,
                                                             bufferevent_flush_mode mode, void* ctx);
 
-    using connect_filter = bool (*)(event_context& ctx);
+    using connect_filter = bool (*)(event_context* ctx);
     using read_filter    = bufferevnt_filter;
     using write_filter   = bufferevnt_filter;
 

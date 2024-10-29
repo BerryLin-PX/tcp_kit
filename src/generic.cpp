@@ -4,26 +4,28 @@ namespace tcp_kit {
 
     void generic::ev_handler::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
         generic::ev_handler* ev_handler = (generic::ev_handler *)(arg);
-        bufferevent *bev = bufferevent_socket_new(ev_handler->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+        bufferevent* bev = bufferevent_socket_new(ev_handler->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         if(!bev) {
             log_error("Failed to allocate the bufferevent");
             close_socket(fd);
             return;
         }
-        event_context ctx{fd, address, socklen, bev};
-        if(!ev_handler->invoke_conn_filters(ctx) || !ev_handler->register_read_write_filters(ctx)) {
-            goto err;
+        event_context* ctx = new event_context{fd, address, socklen, bev};
+        if(ev_handler->invoke_conn_filters(ctx) &&
+           ev_handler->register_read_write_filters(ctx) &&
+           !bufferevent_enable(ctx->bev, EV_READ | EV_WRITE)) {
+            bufferevent_setcb(ctx->bev,
+                              read_callback, write_callback, event_callback,
+                              ctx);
+        } else {
+            log_error("Failed during connection or filter setup");
+            bufferevent_free(ctx->bev);
+            delete ctx;
         }
-        bufferevent_enable(bev, EV_READ | EV_WRITE);
-        bufferevent_setcb(bev,
-                          read_callback, write_callback, event_callback,
-                          ev_handler);
-        err:
-            bufferevent_free(ctx.bev);
     }
 
     void generic::ev_handler::read_callback(bufferevent *bev, void *arg) {
-
+        log_debug("Read callback");
     }
 
     void generic::ev_handler::write_callback(bufferevent *bev, void *arg) {

@@ -43,6 +43,13 @@ namespace tcp_kit {
 
     public:
         server_base();
+
+        void append_filter(const filter& filter_);
+        void add_filter_before(const filter& what, const filter& filter_);
+        void add_filter_after(const filter& what, const filter& filter_);
+        void check_filter_duplicate(const filter& filter_);
+        void replace_filters(vector<filter>&& filters);
+
         virtual ~server_base() = default;
 
     protected:
@@ -60,6 +67,7 @@ namespace tcp_kit {
         atomic<uint32_t>          _ctl;
         mutex                     _mutex;
         condition_variable_any    _state;
+        vector<filter>            _filters;
 
         virtual void try_ready() = 0;
         void trans_to(uint32_t rs);
@@ -86,22 +94,14 @@ namespace tcp_kit {
         virtual void init(server_base* server_ptr) = 0;
         virtual void run() = 0;
 
-        // 实现 builtin 可在 socket 的各个生命周期介入
-        // 当任何事件发生, 过滤器依次进入
-        void append_filter(const filter& filter_);
-        void add_filter_before(const filter& what, const filter& filter_);
-        void add_filter_after(const filter& what, const filter& filter_);
-        void check_filter_duplicate(const filter& filter_);
-        void replace_filters(vector<filter>&& filters);
-
         virtual ~ev_handler_base() = default;
 
     protected:
         server_base*    _server_base;
-        vector<filter>  _filters;
+        vector<filter>* _filters;
 
-        bool invoke_conn_filters(event_context& ctx);
-        bool register_read_write_filters(event_context& ctx);
+        bool invoke_conn_filters(event_context* ctx);
+        bool register_read_write_filters(event_context* ctx);
 
     };
 
@@ -120,8 +120,8 @@ namespace tcp_kit {
         using b_fifo  = blocking_fifo<msg>;
         using lf_fifo = lock_free_fifo<msg>;
 
-        server_base* _server;
-        atomic<void*> fifo;
+        server_base*  _server;
+        atomic<void*> _fifo;
 
     };
 
@@ -220,7 +220,7 @@ namespace tcp_kit {
                     _handlers[i].compete = n_ev_handler > n_handler;
                     _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
                     _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    //log_debug("n(th) of handler_base: %d | fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
+                    //log_debug("n(th) of handler_base: %d | _fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
                 } else if (i < n_ev_handler) { // ev_handler_base 线程多于 handler_base 时
                     for(uint16_t j = 0; j < n_ev_handler; ++j) {
                         _ev_handlers[i].handlers.push_back(&_handlers[j]);
@@ -235,7 +235,7 @@ namespace tcp_kit {
                     }
                     _handlers[i].compete = end - start > 1;
                     _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    //log_debug("N(th) of handler_base: %d | fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
+                    //log_debug("N(th) of handler_base: %d | _fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
             wait_at_least(READY);
