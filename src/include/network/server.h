@@ -11,7 +11,7 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
-#include "filter.h"
+#include <network/filter.h>
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
@@ -100,8 +100,9 @@ namespace tcp_kit {
         server_base*    _server_base;
         vector<filter>* _filters;
 
-        bool invoke_conn_filters(event_context* ctx);
+        bool call_conn_filters(event_context* ctx);
         bool register_read_write_filters(event_context* ctx);
+        bool call_process_filters(const event_context* ctx);
 
     };
 

@@ -1,5 +1,7 @@
 #include <network/protocol/generic.h>
 
+#define SUCCESSFUL 0 // libevent API 表示成功的值
+
 namespace tcp_kit {
 
     void generic::ev_handler::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
@@ -11,9 +13,9 @@ namespace tcp_kit {
             return;
         }
         event_context* ctx = new event_context{fd, address, socklen, bev};
-        if(ev_handler->invoke_conn_filters(ctx) &&
+        if(ev_handler->call_conn_filters(ctx) &&
            ev_handler->register_read_write_filters(ctx) &&
-           !bufferevent_enable(ctx->bev, EV_READ | EV_WRITE)) {
+           bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
             bufferevent_setcb(ctx->bev,
                               read_callback, write_callback, event_callback,
                               ctx);
@@ -25,7 +27,7 @@ namespace tcp_kit {
     }
 
     void generic::ev_handler::read_callback(bufferevent *bev, void *arg) {
-        log_debug("Read callback");
+
     }
 
     void generic::ev_handler::write_callback(bufferevent *bev, void *arg) {

@@ -28,7 +28,7 @@ namespace tcp_kit {
             return BEV_OK;
         }
 
-        const filter string_msg = {nullptr, string_msg_read, string_msg_write};
+        const filter string_msg = filter::make(nullptr, string_msg_read, string_msg_write);
 
     }
 

@@ -95,7 +95,7 @@ namespace tcp_kit {
             return ssl_bev != nullptr;
         }
 
-        const filter ssl = {ssl_connect, nullptr, nullptr};
+        const filter ssl = filter::make(ssl_connect, nullptr, nullptr);
 
     }
 
