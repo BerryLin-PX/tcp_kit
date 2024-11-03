@@ -6,7 +6,7 @@ namespace tcp_kit {
     namespace filters {
 
         bufferevent_filter_result string_msg_read(evbuffer* src, evbuffer* dst,ev_ssize_t dst_limit,
-                                                  bufferevent_flush_mode mode, void* ctx) {
+                                                  bufferevent_flush_mode mode, event_context* ctx) {
             size_t length = 0;
             length = evbuffer_search(src, "\n", 1, nullptr).pos;
             if (length == -1) {
@@ -24,11 +24,11 @@ namespace tcp_kit {
         }
 
         bufferevent_filter_result string_msg_write(evbuffer* src, evbuffer* dst,ev_ssize_t dst_limit,
-                                                  bufferevent_flush_mode mode, void* ctx) {
+                                                  bufferevent_flush_mode mode, event_context* ctx) {
             return BEV_OK;
         }
 
-        const filter string_msg = filter::make(nullptr, string_msg_read, string_msg_write);
+        const filter string_msg = filter::make<nullptr, string_msg_read, string_msg_write>();
 
     }
 

@@ -81,7 +81,7 @@ namespace tcp_kit {
             SSL_CTX_free(ctx);
         }
 
-        bool ssl_connect(event_context* ctx) {
+        void ssl_connect(event_context* ctx) {
             bufferevent* ssl_bev = bufferevent_openssl_filter_new(bufferevent_get_base(ctx->bev),
                                                                   ctx->bev,
                                                                   SSL_new(ssl_ctx_guard::singleton.ctx),
@@ -91,11 +91,11 @@ namespace tcp_kit {
                 ctx->bev = ssl_bev;
             } else {
                 log_error("Failed to create the SSL filter");
+                // TODO
             }
-            return ssl_bev != nullptr;
         }
 
-        const filter ssl = filter::make(ssl_connect, nullptr, nullptr);
+        const filter ssl = filter::make<ssl_connect>();
 
     }
 

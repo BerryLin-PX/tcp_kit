@@ -87,16 +87,15 @@ namespace tcp_kit {
         run();
     }
 
-    bool ev_handler_base::call_conn_filters(event_context* ctx) {
+    void ev_handler_base::call_conn_filters(event_context* ctx) {
         for(const filter& f : *_filters) {
-            if(f.connect && !f.connect(ctx)) {
-                return false;
+            if(f.connect) {
+                f.connect(ctx);
             }
         }
-        return true;
     }
 
-    bool ev_handler_base::register_read_write_filters(event_context* ctx) {
+    void ev_handler_base::register_read_write_filters(event_context* ctx) {
         for(auto it = _filters->begin(); it != _filters->end(); ++it) {
             if(it->read || it->write) {
                 bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,
@@ -106,11 +105,10 @@ namespace tcp_kit {
                     ctx->bev = nested_bev;
                 } else {
                     log_error("Failed to register filter with index [%d]", distance(_filters->begin(), it));
-                    return false;
+                    throw runtime_error("Failed to register filter");
                 }
             }
         }
-        return true;
     }
 
     bool ev_handler_base::call_process_filters(const event_context *ctx) {

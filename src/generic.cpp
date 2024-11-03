@@ -13,13 +13,15 @@ namespace tcp_kit {
             return;
         }
         event_context* ctx = new event_context{fd, address, socklen, bev};
-        if(ev_handler->call_conn_filters(ctx) &&
-           ev_handler->register_read_write_filters(ctx) &&
-           bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
-            bufferevent_setcb(ctx->bev,
-                              read_callback, write_callback, event_callback,
-                              ctx);
-        } else {
+        try {
+            ev_handler->call_conn_filters(ctx);
+            ev_handler->register_read_write_filters(ctx);
+            if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
+                bufferevent_setcb(ctx->bev,read_callback, write_callback, event_callback, ctx);
+            } else {
+                throw runtime_error("Failed to enable the events of bufferevent");
+            }
+        } catch (...) {
             log_error("Failed during connection or filter setup");
             bufferevent_free(ctx->bev);
             delete ctx;

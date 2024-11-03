@@ -100,9 +100,10 @@ namespace tcp_kit {
         server_base*    _server_base;
         vector<filter>* _filters;
 
-        bool call_conn_filters(event_context* ctx);
-        bool register_read_write_filters(event_context* ctx);
+        void call_conn_filters(event_context* ctx);
+        void register_read_write_filters(event_context* ctx);
         bool call_process_filters(const event_context* ctx);
+
 
     };
 

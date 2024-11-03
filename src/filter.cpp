@@ -6,13 +6,10 @@ namespace tcp_kit {
 
     }
 
-    filter::filter(connect_filter connect_, read_filter read_, write_filter write_): connect(connect_), read(read_),
-                                                                                     write(write_) {
-
-    }
-
-    filter filter::make(connect_filter connect_, read_filter read_, write_filter write_) {
-        return filter(connect_, read_, write_);
+    filter::filter(connect_filter connect_, bufferevent_filter_cb read_, bufferevent_filter_cb write_)
+                                                : connect(connect_),
+                                                  read(read_),
+                                                  write(write_) {
     }
 
     bool filter::operator==(const filter& filter_) const {
