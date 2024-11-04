@@ -20,9 +20,10 @@ void log(uint8_t level, const char* file, uint32_t line, const char* fmt, ...) {
         auto base_msg_length = snprintf_base_msg(nullptr, 0, level, file, line, local_time);
         auto log_length = base_msg_length + vsnprintf(nullptr, 0, fmt, args);
         va_start(args, fmt);
-        auto log_str = std::unique_ptr<char[]>(new char[log_length + 2]);
+        auto log_str = std::make_unique<char[]>(log_length + 2);
         snprintf_base_msg(log_str.get(), base_msg_length + 1, level, file, line, local_time);
         vsprintf(log_str.get() + base_msg_length, fmt, args);
+        va_end(args);
         log_str[log_length] = '\n';
         log_str[log_length + 1] = '\0';
         if(level != LOG_ERROR) {

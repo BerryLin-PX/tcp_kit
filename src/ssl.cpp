@@ -2,12 +2,15 @@
 #include <logger/logger.h>
 #include <openssl/crypto.h>
 #include <stdlib.h>
+#include <error/errors.h>
 
 #define _SSLtid pthread_self().p
 
 namespace tcp_kit {
 
     namespace filters {
+
+        using namespace errors;
 
     pthread_mutex_t* ssl_ctx_guard::ssl_locks = nullptr;
     int ssl_ctx_guard::ssl_num_locks = 0;
@@ -90,8 +93,7 @@ namespace tcp_kit {
             if(ssl_bev) {
                 ctx->bev = ssl_bev;
             } else {
-                log_error("Failed to create the SSL filter");
-                // TODO
+                throw generic_error<CONS_BEV_ERR>("Failed to create the SSL filter");
             }
         }
 

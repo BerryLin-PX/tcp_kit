@@ -6,16 +6,18 @@
 #include <network/event_context.h>
 #include <util/func_traits.h>
 #include <logger/logger.h>
+#include <error/errors.h>
 
 namespace tcp_kit {
 
     using namespace std;
+    using namespace errors;
 
     class raw_buffer {
 
     public:
         bufferevent* bev;
-        raw_buffer(bufferevent* bev_);
+        raw_buffer(bufferevent* bev_): bev(bev_) { };
 
     };
 
@@ -97,18 +99,18 @@ namespace tcp_kit {
                                                                       const type_info*& out_t);
 
     // 所有 filter 中的 connect 事件由该函数代理, 它对过滤器进行错误处理
-    // TODO: 回调函数具有 event_context 的所有权, 错误发生时释放 event_context
     template <connect_filter F>
     void catchable_connect_filter(event_context* ctx) {
         try {
             F(ctx);
         } catch (...) {
-            // 异常处理
+            // TODO
+            throw;
         }
     }
 
     // 所有 filter 中的 read/write 事件由该函数代理, 它对过滤器进行错误处理, 并且将 void* 转换为 event_context* 类型
-    // TODO: 回调函数具有 event_context 的所有权, 错误发生时释放 event_context
+    // TODO: 此回调函数具有 event_context 的所有权, 错误发生时释放 event_context
     template <bufferevnt_filter F>
     bufferevent_filter_result catchable_bufferevent_filter(evbuffer* src, evbuffer* dst,
                                                            ev_ssize_t dst_limit,
@@ -116,7 +118,7 @@ namespace tcp_kit {
         try {
             return F(src, dst, dst_limit, mode, static_cast<event_context*>(ctx));
         } catch (...) {
-
+            throw;
         }
     }
 
@@ -134,11 +136,14 @@ namespace tcp_kit {
         //   @template<CONN_F>:  TCP 建立连接前的回调函数, 见 connect_filter
         //   @template<READ_F>:  bufferevent 读回调函数, 见 read_filter
         //   @template<WRITE_F>: bufferevent 写回调函数, 见 write_filter
+        // 返回值
+        //   构造完成的 filter
         template<connect_filter CONN_F, read_filter READ_F, write_filter WRITE_F>
         static filter make();
 
         // 构造一个 filter, 并将各回调函数传递给 catchable_ 开头的系列函数处理. 其中 process_ 参数与其他回调函数不同, 作为形参传入, 这是因为
         // process 回调需要对参数与返回值进行转换, 普通的函数指针做不到类型的动态转换
+        //
         // 为什么不统一所有回调函数的构造方式?
         //   std::function 调用是存在额外开销的, 除非迫不得已, 才应该采用 std::function 的方式, 这就造成了构造 filter 时存在的两种不同范式
         //   一种是将回调函数的函数名作为模版特化: tcp_kit:filter::make<any_cb>(); 另一种将函数指针作为实参: tcp_kit:filter::make(any_cb);
@@ -148,11 +153,16 @@ namespace tcp_kit {
         //     3. tcp_kit::filter f = tcp_kit::filter::make(process_cb);
         //     4. tcp_kit::filter f = tcp_kit::filter::make<connect_cb>(process_cb);
         //     5. tcp_kit::filter f = tcp_kit::filter::make<connect_cb, read_cb, write_cb>(process_cb);
+        //
+        // 最好将在模版参数中的系列回调函数定义为内联(inline)的, 以避免产生额外的调用开销
+        //
         // 参数
         //   @template<CONNECT_>: TCP 建立连接前的回调函数
         //   @template<READ_>:    bufferevent 读回调函数
         //   @template<WRITE_>:   bufferevent 写回调函数
         //   @process_:           一次完整报文读取完成时的回调
+        // 返回值
+        //   构造完成的 filter
         template <connect_filter CONNECT_, read_filter READ_, write_filter WRITE_, typename R, typename Arg>
         static filter make(process_filter<R, Arg> process_);
 
@@ -160,25 +170,27 @@ namespace tcp_kit {
 
     private:
         filter() = default;
-        filter(connect_filter connect_, bufferevent_filter_cb read_, bufferevent_filter_cb write_);
+        filter(connect_filter connect_, bufferevent_filter_cb read_, bufferevent_filter_cb write_): connect(connect_),
+                                                                                                    read(read_),
+                                                                                                    write(write_) { };
 
     };
 
-    template<connect_filter CONN_F = nullptr,
-             read_filter    READ_F = nullptr,
-             write_filter   WRITE_F = nullptr>
+    template<connect_filter CONNECT_ = nullptr,
+             read_filter    READ_ = nullptr,
+             write_filter   WRITE_ = nullptr>
     filter filter::make() {
-        return filter(CONN_F  != nullptr ? catchable_connect_filter<CONN_F>      : nullptr,
-                      READ_F  != nullptr ? catchable_bufferevent_filter<READ_F>  : nullptr,
-                      WRITE_F != nullptr ? catchable_bufferevent_filter<WRITE_F> : nullptr);
+        return filter(CONNECT_ != nullptr ? catchable_connect_filter<CONNECT_> : nullptr,
+                      READ_ != nullptr ? catchable_bufferevent_filter<READ_> : nullptr,
+                      WRITE_ != nullptr ? catchable_bufferevent_filter<WRITE_> : nullptr);
     }
 
-    template <connect_filter CONN_F = nullptr,
-              read_filter    READ_F = nullptr,
-              write_filter   WRITE_F = nullptr,
+    template <connect_filter CONNECT_ = nullptr,
+              read_filter    READ_ = nullptr,
+              write_filter   WRITE_ = nullptr,
               typename R, typename Arg>
     filter filter::make(process_filter<R, Arg> process_) {
-        filter f = make<CONN_F, READ_F, WRITE_F>();
+        filter f = make<CONNECT_, READ_, WRITE_>();
         using result_t = typename func_traits<decltype(process_)>::result_type;
         using arg_t    = typename func_traits<decltype(process_)>::args_type;
         f.process = [process_](event_context* ctx, unique_ptr<void> in, const type_info* in_t, const type_info*& out_t) {
@@ -186,11 +198,9 @@ namespace tcp_kit {
                 unique_ptr<arg_t> arg(static_cast<arg_t*>(in.release()));
                 unique_ptr<result_t> res = process_(ctx, arg); // TODO: 错误处理
                 out_t = &typeid(result_t);
-                auto deleter = [](void* ptr) { delete static_cast<result_t*>(ptr); };
-                return unique_ptr<void, decltype(deleter)>(res.release(), deleter);
+                return unique_ptr<void, raw_ptr_deleter >(res.release(), [](void* ptr) { delete static_cast<result_t*>(ptr); });
             } else {
-                log_warn("Processor parameter type mismatch: Expected: [%s] Actual: [%s]", typeid(arg_t).name(), in_t->name());
-                throw invalid_argument("Processor parameter type mismatch");
+                throw generic_error<PRCS_ARG_ERR>("Processor parameter type mismatch: Expected: [%s] Actual: [%s]", typeid(arg_t).name(), in_t->name());
             }
         };
 

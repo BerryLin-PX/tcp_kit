@@ -1,6 +1,9 @@
 #include <network/server.h>
+#include <error/errors.h>
 
 namespace tcp_kit {
+
+    using namespace errors;
 
     server_base::server_base(): _ctl(0) { }
 
@@ -98,20 +101,18 @@ namespace tcp_kit {
     void ev_handler_base::register_read_write_filters(event_context* ctx) {
         for(auto it = _filters->begin(); it != _filters->end(); ++it) {
             if(it->read || it->write) {
-                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,
-                                                                 it->write,BEV_OPT_CLOSE_ON_FREE,
-                                                                 nullptr, ctx);
+                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,it->write,
+                                                                 BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
                 if(nested_bev) {
                     ctx->bev = nested_bev;
                 } else {
-                    log_error("Failed to register filter with index [%d]", distance(_filters->begin(), it));
-                    throw runtime_error("Failed to register filter");
+                    throw generic_error<CONS_BEV_ERR>("Failed to register filter with index [%d]",distance(_filters->begin(), it));
                 }
             }
         }
     }
 
-    bool ev_handler_base::call_process_filters(const event_context *ctx) {
+    void ev_handler_base::call_process_filters(const event_context *ctx) {
         raw_ptr_deleter deleter = [](void* ptr) { delete static_cast<raw_buffer*>(ptr); };
         auto next_arg = unique_ptr<void, raw_ptr_deleter>(new raw_buffer(ctx->bev), deleter);
         for(auto it = _filters->begin(); it != _filters->end(); ++it) {
@@ -120,13 +121,11 @@ namespace tcp_kit {
             try {
                 next_arg = it->process(ctx, move(next_arg), in_t, out_t);
                 in_t = out_t;
-            } catch (invalid_argument& err) {
+            } catch (generic_error<PRCS_ARG_ERR>& err) {
+                log_warn(err.what());
                 continue;
-            } catch (...) {
-
             }
         }
-        return true;
     }
 
     // -----------------------------------------------------------------------------------------------------------------

@@ -4,7 +4,5 @@
 
 namespace tcp_kit {
 
-    event_context::event_context(socket_t fd, sockaddr* address, int socklen, bufferevent* bev)
-            : fd(fd), address(address), socklen(socklen), bev(bev) { }
 
 }

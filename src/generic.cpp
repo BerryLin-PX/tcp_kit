@@ -1,8 +1,11 @@
 #include <network/protocol/generic.h>
+#include <error/errors.h>
 
 #define SUCCESSFUL 0 // libevent API 表示成功的值
 
 namespace tcp_kit {
+
+    using namespace errors;
 
     void generic::ev_handler::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
         generic::ev_handler* ev_handler = (generic::ev_handler *)(arg);
@@ -19,10 +22,10 @@ namespace tcp_kit {
             if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
                 bufferevent_setcb(ctx->bev,read_callback, write_callback, event_callback, ctx);
             } else {
-                throw runtime_error("Failed to enable the events of bufferevent");
+                throw generic_error<CONS_BEV_ERR>("Failed to enable the events of bufferevent");
             }
-        } catch (...) {
-            log_error("Failed during connection or filter setup");
+        } catch (const exception& err) {
+            log_error(err.what());
             bufferevent_free(ctx->bev);
             delete ctx;
         }

@@ -35,7 +35,7 @@ namespace tcp_kit {
 
         };
 
-        void ssl_connect(event_context* ctx);
+        inline void ssl_connect(event_context* ctx);
 
         extern const filter ssl;
 

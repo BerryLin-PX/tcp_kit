@@ -14,7 +14,8 @@ namespace tcp_kit {
         int          socklen;
         bufferevent* bev;
 
-        event_context(socket_t fd, sockaddr* address, int socklen, bufferevent* bev);
+        event_context(socket_t fd, sockaddr* address, int socklen, bufferevent* bev): fd(fd), address(address),
+                                                                                      socklen(socklen), bev(bev) { };
 
     };
 

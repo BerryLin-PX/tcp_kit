@@ -102,7 +102,7 @@ namespace tcp_kit {
 
         void call_conn_filters(event_context* ctx);
         void register_read_write_filters(event_context* ctx);
-        bool call_process_filters(const event_context* ctx);
+        void call_process_filters(const event_context* ctx);
 
 
     };
