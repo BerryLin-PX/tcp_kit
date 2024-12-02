@@ -7,6 +7,7 @@
 #include <test/server_test.hpp>
 #include <test/tcp_util_test.hpp>
 #include <test/lock_free_queue_test.hpp>
+#include <util/func_traits.h>
 
 #define init_google_test InitGoogleTest
 
@@ -16,6 +17,5 @@
 //}
 
 int main() {
-    tcp_kit::server_test::t12();
     return 0;
 }

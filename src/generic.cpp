@@ -1,14 +1,14 @@
-#include <network/protocol/generic.h>
+#include "include/network/generic.h"
 #include <error/errors.h>
+#include <network/server.h>
+#include <network/filter.h>
 
 #define SUCCESSFUL 0 // libevent API 表示成功的值
 
 namespace tcp_kit {
 
-    using namespace errors;
-
     void generic::ev_handler::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
-        generic::ev_handler* ev_handler = (generic::ev_handler *)(arg);
+        generic::ev_handler* ev_handler = static_cast<generic::ev_handler *>(arg);
         bufferevent* bev = bufferevent_socket_new(ev_handler->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         if(!bev) {
             log_error("Failed to allocate the bufferevent");
@@ -22,7 +22,7 @@ namespace tcp_kit {
             if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
                 bufferevent_setcb(ctx->bev,read_callback, write_callback, event_callback, ctx);
             } else {
-                throw generic_error<CONS_BEV_ERR>("Failed to enable the events of bufferevent");
+                throw generic_error<CONS_BEV_FAILED>("Failed to enable the events of bufferevent");
             }
         } catch (const exception& err) {
             log_error(err.what());
@@ -32,7 +32,11 @@ namespace tcp_kit {
     }
 
     void generic::ev_handler::read_callback(bufferevent *bev, void *arg) {
-
+        try {
+            generic::ev_handler* ev_handler = static_cast<generic::ev_handler *>(arg);
+        } catch (const exception& err) {
+            log_error(err.what());
+        }
     }
 
     void generic::ev_handler::write_callback(bufferevent *bev, void *arg) {
@@ -71,6 +75,12 @@ namespace tcp_kit {
 
     void generic::handler::run() {
 
+    }
+
+    filter generic::api_dispatcher::dispatch_filter(const api_dispatcher& dispatcher) {
+        return filter::make([dispatcher](const event_context* ctx, unique_ptr<GenericMsg> msg) -> unique_ptr<GenericReply> {
+            return dispatcher._api_map.find(msg->api())->second(move(msg)); // TODO
+        });
     }
 
 }

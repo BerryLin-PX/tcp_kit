@@ -1,11 +1,15 @@
 #include <logger/logger.h>
 #include <network/server.h>
-#include <network/protocol/generic.h>
-#include <network/builtin/string_msg.h>
+#include "include/network/generic.h"
+#include <tuple>
+#include <type_traits>
+#include <util/func_traits.h>
 
 namespace tcp_kit {
 
     namespace server_test {
+
+        using namespace std;
 
         uint32_t n_with_scale(uint16_t n_of_processor, float scale, uint16_t n_ev_handler = 0, uint16_t n_handler = 0) {
             uint32_t _ctl = 0;
@@ -160,15 +164,45 @@ namespace tcp_kit {
 
         void t12() {
             server<generic> svr;
+            svr.api("echo", [](string msg){ return msg; });
             svr.start();
         }
 
-
-        void t13() {
-            server<generic> svr;
-            svr.append_filter(filters::string_msg);
-            svr.start();
-        }
+//        template <typename T, typename D = std::default_delete<T>>
+//        struct check_unique_ptr : std::false_type {};
+//
+//        template <typename T, typename D>
+//        struct check_unique_ptr<unique_ptr<T, D>> : std::true_type {};
+//
+//        template <typename Tuple>
+//        struct check_process_args {
+//            static constexpr bool value =
+//                    is_same<event_context*, tuple_element_t<0, Tuple>>::value &&
+//                    check_unique_ptr<tuple_element_t<1, Tuple>>::value;
+//        };
+//
+//        template <typename T, typename D = std::default_delete<T>>
+//        struct unique_ptr_type {};
+//
+//        template <typename T, typename D>
+//        struct unique_ptr_type<unique_ptr<T, D>> {
+//            using type = T;
+//            using deleter = D;
+//        };
+//
+//        template <typename F>
+//        void call(F func) {
+//            using result_t = typename func_traits<F>::result_type;
+//            using args_t = typename func_traits<F>::args_type;
+//            static_assert(check_unique_ptr<result_t>::value && check_process_args<args_t>::value, "ProcessFilter must conform to the following function signature: unique_ptr<?>(event_context*, unique_ptr<?>)");
+//            log_info("%s", typeid(typename unique_ptr_type<result_t>::type).name());
+//        }
+//
+//        void t13() {
+//            call([](event_context* ctx, unique_ptr<int> arg) -> unique_ptr<char> {
+//               return make_unique<char>();
+//            });
+//        }
 
     }
 

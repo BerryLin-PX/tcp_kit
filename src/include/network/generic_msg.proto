@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+
+package tcp_kit;
+
+message Param {
+    oneof value {
+        uint32 u32 = 1;
+        int32  s32 = 2;
+        uint64 u64 = 3;
+        int64  s64 = 4;
+        float  f   = 5;
+        double d   = 6;
+        bool   b   = 7;
+        string str = 8;
+    }
+}
+
+message GenericMsg {
+    string api = 1;
+    repeated Param params = 2;
+    optional google.protobuf.Any body = 3;
+}

@@ -1,9 +1,8 @@
 #include <network/server.h>
 #include <error/errors.h>
+#include <event2/buffer.h>
 
 namespace tcp_kit {
-
-    using namespace errors;
 
     server_base::server_base(): _ctl(0) { }
 
@@ -77,6 +76,9 @@ namespace tcp_kit {
         }
     }
 
+    void server_base::check_filters_validity() {
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
@@ -106,7 +108,7 @@ namespace tcp_kit {
                 if(nested_bev) {
                     ctx->bev = nested_bev;
                 } else {
-                    throw generic_error<CONS_BEV_ERR>("Failed to register filter with index [%d]",distance(_filters->begin(), it));
+                    throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", distance(_filters->begin(), it));
                 }
             }
         }
@@ -114,14 +116,14 @@ namespace tcp_kit {
 
     void ev_handler_base::call_process_filters(const event_context *ctx) {
         raw_ptr_deleter deleter = [](void* ptr) { delete static_cast<raw_buffer*>(ptr); };
-        auto next_arg = unique_ptr<void, raw_ptr_deleter>(new raw_buffer(ctx->bev), deleter);
+        auto next_arg = unique_ptr<void, raw_ptr_deleter>(new raw_buffer(bufferevent_get_input(ctx->bev)), deleter);
         for(auto it = _filters->begin(); it != _filters->end(); ++it) {
             const type_info* in_t = &typeid(raw_buffer);
             const type_info* out_t = nullptr;
             try {
                 next_arg = it->process(ctx, move(next_arg), in_t, out_t);
                 in_t = out_t;
-            } catch (generic_error<PRCS_ARG_ERR>& err) {
+            } catch (const generic_error<PRCS_ARG_MISMATCHED>& err) {
                 log_warn(err.what());
                 continue;
             }

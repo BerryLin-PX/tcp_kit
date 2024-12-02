@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package tcp_kit;
+
+import "google/protobuf/any.proto";
+
+message GenericReply {
+
+    enum Code {
+        UNKNOWN_ERR = 0;
+        SUCCESS = 200;
+        RES_NOT_FOUND = 404;
+        INTERNAL_SERVER_ERR = 500;
+    }
+
+    Code code = 1;
+    optional string msg = 2;
+    optional google.protobuf.Any body = 3;
+}

@@ -1,4 +1,4 @@
-#include <network/builtin/ssl.h>
+#include "include/network/ssl.h"
 #include <logger/logger.h>
 #include <openssl/crypto.h>
 #include <stdlib.h>
@@ -10,11 +10,9 @@ namespace tcp_kit {
 
     namespace filters {
 
-        using namespace errors;
-
-    pthread_mutex_t* ssl_ctx_guard::ssl_locks = nullptr;
-    int ssl_ctx_guard::ssl_num_locks = 0;
-    ssl_ctx_guard ssl_ctx_guard::singleton;
+        pthread_mutex_t* ssl_ctx_guard::ssl_locks = nullptr;
+        int ssl_ctx_guard::ssl_num_locks = 0;
+        ssl_ctx_guard ssl_ctx_guard::singleton;
 
 #define SSL_PKEY_FILE "/Users/linruixin/Desktop/pkey" // TODO
 #define SSL_CERT_FILE "/Users/linruixin/Desktop/cert" // TODO
@@ -93,7 +91,7 @@ namespace tcp_kit {
             if(ssl_bev) {
                 ctx->bev = ssl_bev;
             } else {
-                throw generic_error<CONS_BEV_ERR>("Failed to create the SSL filter");
+                throw generic_error<CONS_BEV_FAILED>("Failed to create the SSL filter");
             }
         }
 

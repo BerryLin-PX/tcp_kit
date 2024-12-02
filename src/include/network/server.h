@@ -31,7 +31,6 @@ namespace tcp_kit {
     class handler_base;
 
     // 该类制定了 server 的状态控制行为
-    //
     // NEW        | server 的初始状态
     // READY      | 所有工作线程准备就绪, 随时进入 RUNNING 状态
     // RUNNING    | server 接收/处理连接
@@ -49,6 +48,7 @@ namespace tcp_kit {
         void add_filter_after(const filter& what, const filter& filter_);
         void check_filter_duplicate(const filter& filter_);
         void replace_filters(vector<filter>&& filters);
+        void check_filters_validity();
 
         virtual ~server_base() = default;
 
@@ -104,7 +104,6 @@ namespace tcp_kit {
         void register_read_write_filters(event_context* ctx);
         void call_process_filters(const event_context* ctx);
 
-
     };
 
     class handler_base {
@@ -127,11 +126,29 @@ namespace tcp_kit {
 
     };
 
-    // 模版参数 P 代表协议(Protocol), 因此可以将 server 指定为任意协议实现, 如: server<generic> svr;
+    // 模版参数 P:
+    // P 代表协议(Protocol), 将 server 指定为任意协议实现, 如: server<generic> svr; 或: server<http> svr;
     // P 必须满足以下条件:
-    //   1: P 拥有子类 ev_handler 且派生于 ev_handler_base 类
-    //   2: P 拥有子类 handler    且派生于 handler 类
+    //   1: P 有子类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
+    //   2: P 有子类 handler    且派生于 handler 类, 无参构造函数
+    //   3: P 有子类 api_dispatcher, 无参构造函数, 且具备以下函数:
+    //        ----------------------------------------------------------------------------------------------------------
+    //        1. bind 函数
+    //        该函数在 server 中注册一个 api, 以便对消息进行区分: svr.api("echo", [](string msg){ return msg; });
+    //        参数
+    //          @id:   消息处理器的唯一标识类型
+    //          @prcs: 消息处理器, 可能是一个函数指针, 也可能是一个 lambda 表达式
+    //        template<typename Identity, typename Processor>
+    //        void api(Identity id, Processor prcs);
+    //        ----------------------------------------------------------------------------------------------------------
+    //        2. dispatch_filter 函数(static 修饰)
+    //        返回一个 filter, 以便在过滤器中根据特征对 api 进行消息分发
+    //        参数
+    //          @dispatcher: server 将构造一个 api_dispatcher 的实例, 传递给该函数
+    //        返回值
+    //          返回一个 filter, 将被作为拦截链的最后一个 filter
     //
+    // 线程的分配:
     // n_ev_handler -> 处理连接事件线程数(一般是读、写)
     // n_handler    -> 处理消息线程数
     //
@@ -150,19 +167,25 @@ namespace tcp_kit {
     template <typename P>
     class server: public server_base {
 
-    using ev_handler_t = typename P::ev_handler;
-    using handler_t    = typename P::handler;
+    using ev_handler_t     = typename P::ev_handler;
+    using handler_t        = typename P::handler;
+    using api_dispatcher_t = typename P::api_dispatcher;
 
     static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "P::ev_handler must be derived from ev_handler_base.");
     static_assert(std::is_base_of<handler_base, handler_t>::value , "P::handler must be derived from handler_base.");
 
     public:
-        const uint16_t port;
+        const uint16_t   port;
+        api_dispatcher_t api_dispatcher;
 
         explicit server(uint16_t port_ = 3000,
                         uint16_t n_ev_handler = 0,
                         uint16_t n_handler = 0);
+
         void start();
+
+        template<typename Identity, typename Processor>
+        void api(const Identity& id, Processor prcs);
 
         server(const server&) = delete;
         server(server&&) = delete;
@@ -240,12 +263,19 @@ namespace tcp_kit {
                     //log_debug("N(th) of handler_base: %d | _fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
+            append_filter(api_dispatcher_t::dispatch_filter(api_dispatcher));
             wait_at_least(READY);
             when_ready();
             trans_to(RUNNING);
             log_info("The server is started on port: %d", port);
             wait_at_least(SHUTDOWN);
         }
+    }
+
+    template<typename P>
+    template<typename Identity, typename Processor>
+    void server<P>::api(const Identity& id, Processor prcs) {
+        api_dispatcher.api(id, prcs);
     }
 
     template <typename P>

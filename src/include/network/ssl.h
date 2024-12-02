@@ -1,7 +1,7 @@
 #ifndef TCP_KIT_SSL_H
 #define TCP_KIT_SSL_H
 
-#include <network/filter.h>
+#include "filter.h"
 #include <event2/bufferevent_ssl.h>
 #include <openssl/ssl.h>
 #include <openssl/rand.h>
