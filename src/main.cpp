@@ -17,5 +17,10 @@
 //}
 
 int main() {
+    double d = 1.0;
+    auto func1 = [](event_context* ctx, unique_ptr<int> in) -> unique_ptr<int> {
+        return make_unique<int>(3);
+    };
+    auto func_ptr = func1;
     return 0;
 }
