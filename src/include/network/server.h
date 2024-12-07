@@ -12,6 +12,7 @@
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 #include <network/filter.h>
+#include <network/filter_chain.h>
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
@@ -31,24 +32,17 @@ namespace tcp_kit {
     class handler_base;
 
     // 该类制定了 server 的状态控制行为
+    //
     // NEW        | server 的初始状态
     // READY      | 所有工作线程准备就绪, 随时进入 RUNNING 状态
     // RUNNING    | server 接收/处理连接
     // STOPPING   | server 因运行时异常或中断或手动关闭, 此时不再接收连接请求, 所有连接关闭后进入 SHUTDOWN 状态
     // SHUTDOWN   | 所有连接已断开, 待线程池终结、释放事件循环等资源、日志记录等工作完成后进入 TERMINATED 状态
     // TERMINATED | server 生命周期结束
-
     class server_base {
 
     public:
-        server_base();
-
-        void append_filter(const filter& filter_);
-        void add_filter_before(const filter& what, const filter& filter_);
-        void add_filter_after(const filter& what, const filter& filter_);
-        void check_filter_duplicate(const filter& filter_);
-        void replace_filters(vector<filter>&& filters);
-        void check_filters_validity();
+        server_base(filter_chain filters_);
 
         virtual ~server_base() = default;
 
@@ -67,7 +61,7 @@ namespace tcp_kit {
         atomic<uint32_t>          _ctl;
         mutex                     _mutex;
         condition_variable_any    _state;
-        vector<filter>            _filters;
+        filter_chain              _filters;
 
         virtual void try_ready() = 0;
         void trans_to(uint32_t rs);
@@ -80,29 +74,27 @@ namespace tcp_kit {
 
     // ev_handler_base 与 handler_base 作为 Event Handler 与 Handler 的基本实现
     // 由于它们始终被 server 调度, 所以它们在 bind_and_run() 中与 server 进行状态同步
-    // !!! 请确保在派生类中的构造函数是无参的 !!!
-    // ----------------------------------------------------------------------
-    // init() 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应该在此处进行初始化
-    // run()  在 server 进入 RUNNING 状态后被调度, 派生类应该在此处做任务处理
-
+    // 请确保在派生类中的构造函数是无参的
     class ev_handler_base {
 
     public:
         vector<handler_base*> handlers;
 
         void bind_and_run(server_base* server_ptr);
+        // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应在此处进行初始化
         virtual void init(server_base* server_ptr) = 0;
+        // 在 server 进入 RUNNING 状态后被调度, 派生类应在此处做任务处理
         virtual void run() = 0;
 
         virtual ~ev_handler_base() = default;
 
     protected:
         server_base*    _server_base;
-        vector<filter>* _filters;
+        filter_chain*   _filters;
 
         void call_conn_filters(event_context* ctx);
         void register_read_write_filters(event_context* ctx);
-        void call_process_filters(const event_context* ctx);
+        unique_ptr<evbuffer_taker> call_process_filters(event_context* ctx);
 
     };
 
@@ -126,27 +118,27 @@ namespace tcp_kit {
 
     };
 
-    // 模版参数 P:
-    // P 代表协议(Protocol), 将 server 指定为任意协议实现, 如: server<generic> svr; 或: server<http> svr;
-    // P 必须满足以下条件:
-    //   1: P 有子类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
-    //   2: P 有子类 handler    且派生于 handler 类, 无参构造函数
-    //   3: P 有子类 api_dispatcher, 无参构造函数, 且具备以下函数:
-    //        ----------------------------------------------------------------------------------------------------------
-    //        1. bind 函数
-    //        该函数在 server 中注册一个 api, 以便对消息进行区分: svr.api("echo", [](string msg){ return msg; });
-    //        参数
-    //          @id:   消息处理器的唯一标识类型
-    //          @prcs: 消息处理器, 可能是一个函数指针, 也可能是一个 lambda 表达式
-    //        template<typename Identity, typename Processor>
-    //        void api(Identity id, Processor prcs);
-    //        ----------------------------------------------------------------------------------------------------------
-    //        2. dispatch_filter 函数(static 修饰)
-    //        返回一个 filter, 以便在过滤器中根据特征对 api 进行消息分发
-    //        参数
-    //          @dispatcher: server 将构造一个 api_dispatcher 的实例, 传递给该函数
-    //        返回值
-    //          返回一个 filter, 将被作为拦截链的最后一个 filter
+    struct api_dispatcher_p {};
+
+    // 模版参数 Protocols:
+    // Protocols 代表协议(Protocol), 将 server 指定为任意协议实现, 如: server<generic> svr; 或: server<http> svr;
+    // Protocols 必须满足以下条件:
+    //   1: Protocols 有子类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
+    //   2: Protocols 有子类 handler 且派生于 handler 类, 无参构造函数
+    //   3: Protocols 如若有默认的过滤器集, 声明 filters 类型, 如: using filters = type_list<filter1, filter2, filter3...>;
+    //   4: Protocols 有子类 api_dispatcher<uint16_t PORT>, 无参构造函数, 且具备以下条件:
+    //      ----------------------------------------------------------------------------------------------------------
+    //      1. api 函数(static 修饰)
+    //      该函数在 server 中注册一个 api, 以便对消息进行区分: svr.api("echo", [](string msg){ return msg; });
+    //      参数
+    //        @id:   消息处理器的唯一标识类型
+    //        @prcs: 消息处理器, 可能是一个函数指针, 也可能是一个 lambda 表达式
+    //      template<typename Identity, typename Processor>
+    //      void api(Identity id, Processor prcs);
+    //      ----------------------------------------------------------------------------------------------------------
+    //      2. 过滤器
+    //      如有需要注册过滤器, 在此类中实现 filter 的 process 函数
+    //      使用 api_dispatcher_p 代替实际类型, 如: using filters = type_list<filter1, api_dispatcher_p>
     //
     // 线程的分配:
     // n_ev_handler -> 处理连接事件线程数(一般是读、写)
@@ -164,22 +156,20 @@ namespace tcp_kit {
     // 生命周期函数:
     //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
 
-    template <typename P>
+    template <typename Protocols, uint16_t PORT = 3000>
     class server: public server_base {
 
-    using ev_handler_t     = typename P::ev_handler;
-    using handler_t        = typename P::handler;
-    using api_dispatcher_t = typename P::api_dispatcher;
+    protected:
+        using ev_handler_t     = typename Protocols::template ev_handler<PORT>;
+        using handler_t        = typename Protocols::handler;
+        using api_dispatcher_t = typename Protocols::template api_dispatcher<PORT>;
+        using filters          = typename replace_type<typename Protocols::filters, api_dispatcher_p, api_dispatcher_t>::type;
 
-    static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "P::ev_handler must be derived from ev_handler_base.");
-    static_assert(std::is_base_of<handler_base, handler_t>::value , "P::handler must be derived from handler_base.");
+        static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "Protocols::ev_handler must be derived from ev_handler_base.");
+        static_assert(std::is_base_of<handler_base, handler_t>::value , "Protocols::handler must be derived from handler_base.");
 
     public:
-        const uint16_t   port;
-        api_dispatcher_t api_dispatcher;
-
-        explicit server(uint16_t port_ = 3000,
-                        uint16_t n_ev_handler = 0,
+        explicit server(uint16_t n_ev_handler = 0,
                         uint16_t n_handler = 0);
 
         void start();
@@ -208,8 +198,8 @@ namespace tcp_kit {
 
     };
 
-    template <typename P>
-    server<P>::server(uint16_t port_, uint16_t n_ev_handler, uint16_t n_handler): port(port_) {
+    template <typename Protocols, uint16_t PORT>
+    server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler) : server_base(filter_chain::make(filters{})) {
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
             throw invalid_argument("Illegal Parameter.");
         _ctl |= NEW;
@@ -229,8 +219,8 @@ namespace tcp_kit {
     // 4 - 2 ev_h: [1][2][1,2][1,2]
     // 3 - 5 ev_h: [1,4][2,4][3,5]
     // 30-37
-    template <typename P>
-    void server<P>::start() {
+    template <typename Protocols, uint16_t PORT>
+    void server<Protocols, PORT>::start() {
         uint16_t n_ev_handler = n_of_ev_handler();
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;
@@ -263,38 +253,37 @@ namespace tcp_kit {
                     //log_debug("N(th) of handler_base: %d | _fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
                 }
             }
-            append_filter(api_dispatcher_t::dispatch_filter(api_dispatcher));
             wait_at_least(READY);
             when_ready();
             trans_to(RUNNING);
-            log_info("The server is started on port: %d", port);
+            log_info("The server is started on port: %d", PORT);
             wait_at_least(SHUTDOWN);
         }
     }
 
-    template<typename P>
+    template<typename Protocols, uint16_t PORT>
     template<typename Identity, typename Processor>
-    void server<P>::api(const Identity& id, Processor prcs) {
-        api_dispatcher.api(id, prcs);
+    void server<Protocols, PORT>::api(const Identity& id, Processor prcs) {
+        api_dispatcher_t::api(id, prcs);
     }
 
-    template <typename P>
-    void server<P>::try_ready() {
+    template <typename Protocols, uint16_t PORT>
+    void server<Protocols, PORT>::try_ready() {
         if(++_ready_threads == n_of_ev_handler() + n_of_handler()) {
             trans_to(READY);
         }
     }
 
-    template <typename P>
-    void server<P>::when_ready() { }
+    template <typename Protocols, uint16_t PORT>
+    void server<Protocols, PORT>::when_ready() { }
 
-    template <typename P>
-    inline uint16_t server<P>::n_of_ev_handler() {
+    template <typename Protocols, uint16_t PORT>
+    inline uint16_t server<Protocols, PORT>::n_of_ev_handler() {
         return (_ctl.load(memory_order_relaxed) >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY;
     }
 
-    template <typename P>
-    inline uint16_t server<P>::n_of_handler() {
+    template <typename Protocols, uint16_t PORT>
+    inline uint16_t server<Protocols, PORT>::n_of_handler() {
         return _ctl.load(memory_order_relaxed) & HANDLER_CAPACITY;
     }
 

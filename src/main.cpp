@@ -8,6 +8,7 @@
 #include <test/tcp_util_test.hpp>
 #include <test/lock_free_queue_test.hpp>
 #include <util/func_traits.h>
+#include <network/filter_chain.h>
 
 #define init_google_test InitGoogleTest
 
@@ -16,11 +17,7 @@
 //    return RUN_ALL_TESTS();
 //}
 
+
 int main() {
-    double d = 1.0;
-    auto func1 = [](event_context* ctx, unique_ptr<int> in) -> unique_ptr<int> {
-        return make_unique<int>(3);
-    };
-    auto func_ptr = func1;
     return 0;
 }

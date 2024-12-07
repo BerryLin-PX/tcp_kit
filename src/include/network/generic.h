@@ -17,8 +17,12 @@ namespace tcp_kit {
 
     // 作为 server 的通用协议实现
     class generic {
+
     public:
 
+        using filters = type_list<api_dispatcher_p>;
+
+        template<uint16_t PORT>
         class ev_handler: public ev_handler_base {
         public:
             ev_handler();
@@ -30,10 +34,10 @@ namespace tcp_kit {
             static void event_callback(bufferevent *bev, short what, void *arg);
 
         protected:
-            server<generic>* _server;
-            event_base*      _ev_base;
-            mutex            _mutex;
-            evconnlistener*  _evc;
+            server<generic, PORT>* _server;
+            event_base*            _ev_base;
+            mutex                  _mutex;
+            evconnlistener*        _evc;
 
             void init(server_base* server_ptr) override;
             void run() override;
@@ -50,33 +54,116 @@ namespace tcp_kit {
 
         };
 
+        template<uint16_t PORT>
         class api_dispatcher {
 
         public:
 
-            static filter dispatch_filter(const api_dispatcher& dispatcher);
+            static unique_ptr<GenericReply> process(const event_context* ctx, unique_ptr<GenericMsg> msg);
 
             template<typename Processor>
-            void api(const string& id, Processor prcs);
+            static void api(const string& id, Processor prcs);
 
             template<typename T>
-            unique_ptr<GenericReply> serialize(T& data);
+            static unique_ptr<GenericReply> serialize(T& data);
 
             template<typename Tuple>
-            Tuple deserialize(unique_ptr<GenericMsg>&);
+            static Tuple deserialize(unique_ptr<GenericMsg>&);
 
         private:
-            unordered_map<string , function<unique_ptr<GenericReply>(unique_ptr<GenericMsg>)>> _api_map;
+            using map_t = unordered_map<string , function<unique_ptr<GenericReply>(unique_ptr<GenericMsg>)>>;
+            static map_t _api_map;
 
         };
 
     };
 
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
+        generic::ev_handler<PORT>* ev_handler = static_cast<generic::ev_handler<PORT> *>(arg);
+        bufferevent* bev = bufferevent_socket_new(ev_handler->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+        if(!bev) {
+            log_error("Failed to allocate the bufferevent");
+            close_socket(fd);
+            return;
+        }
+        event_context* ctx = new event_context{fd, address, socklen, bev};
+        try {
+             ev_handler->call_conn_filters(ctx);
+             ev_handler->register_read_write_filters(ctx);
+            if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
+                bufferevent_setcb(ctx->bev,read_callback, write_callback, event_callback, ctx);
+            } else {
+                throw generic_error<CONS_BEV_FAILED>("Failed to enable the events of bufferevent");
+            }
+        } catch (const exception& err) {
+            log_error(err.what());
+            bufferevent_free(ctx->bev);
+            delete ctx;
+        }
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::read_callback(bufferevent *bev, void *arg) {
+        try {
+            generic::ev_handler<PORT>* ev_handler = static_cast<generic::ev_handler<PORT>*>(arg);
+        } catch (const exception& err) {
+            log_error(err.what());
+        }
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::write_callback(bufferevent *bev, void *arg) {
+
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::event_callback(bufferevent *bev, short what, void *arg) {
+
+    }
+
+    template<uint16_t PORT>
+    generic::ev_handler<PORT>::ev_handler() {
+        _ev_base = event_base_new();
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::init(server_base* server_ptr) {
+        _server = static_cast<server<generic, PORT>*>(server_ptr);
+        sockaddr_in sin = socket_address(PORT);
+        _evc = evconnlistener_new_bind(
+                _ev_base, &generic::ev_handler<PORT>::listener_callback, this,
+                LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE_PORT,
+                -1, (sockaddr*) &sin, sizeof(sin));
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::run() {
+        event_base_dispatch(_ev_base);
+    }
+
+    template<uint16_t PORT>
+    generic::ev_handler<PORT>::~ev_handler() {
+        evconnlistener_free(_evc);
+        event_base_free(_ev_base);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+
+    template<uint16_t PORT>
+    typename generic::api_dispatcher<PORT>::map_t generic::api_dispatcher<PORT>::_api_map;
+
+    template<uint16_t PORT>
+    unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(const event_context* ctx, unique_ptr<GenericMsg> msg) {
+        api_dispatcher<PORT>::_api_map.find(msg->api())->second(move(msg));
+    }
+
+    template<uint16_t PORT>
     template<typename Processor>
-    void generic::api_dispatcher::api(const string& id, Processor prcs) {
+    void generic::api_dispatcher<PORT>::api(const string& id, Processor prcs) {
         using result_t = typename func_traits<Processor>::result_type;
         using args_t = typename func_traits<Processor>::args_type;
-        _api_map[id] = [this, prcs](unique_ptr<GenericMsg> msg) -> unique_ptr<GenericReply> {
+        api_dispatcher<PORT>::_api_map[id] = [prcs](unique_ptr<GenericMsg> msg) -> unique_ptr<GenericReply> {
             args_t args = deserialize<args_t>(msg);
             result_t res = call(prcs, move(args));
             return serialize(res);
@@ -122,7 +209,7 @@ namespace tcp_kit {
 
     template<typename T, uint32_t Offset>
     T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<!is_base_of<google::protobuf::Message, T>::value && !match_basic_type<T>::value>::type* = nullptr) {
-        throw generic_error<UNSUPPORTED_TYPE>("Only the following types are supported as parameters for the API handler: [unsigned int 32, signed int 32, unsigned int 64, signed int 64, float, double, boolean, string, Any type that conforms to the Protobuf 3 specification].", typeid(T).name());
+        throw generic_error<UNSUPPORTED_TYPE>("Only the following types are supported as parameters for the API handler: [unsigned int 32, signed int 32, unsigned int 64, signed int 64, float, double, boolean, string, any type that conforms to the Protobuf 3 specification].", typeid(T).name());
     }
 
     template<typename T, int32_t Offset>
@@ -220,22 +307,23 @@ namespace tcp_kit {
         return {unpack_to<tuple_element_t<I, Tuple>, infer_offset<Tuple, I>::value>(msg)...};
     }
 
+    template<uint16_t PORT>
     template<typename Tuple>
-    Tuple generic::api_dispatcher::deserialize(unique_ptr<GenericMsg>& msg) {
+    Tuple generic::api_dispatcher<PORT>::deserialize(unique_ptr<GenericMsg>& msg) {
         if(tuple_size<Tuple>::value && (msg->params_size() || msg->has_body())) {
             return unpack<Tuple>(make_index_seq<Tuple>(), msg);
         }
         return Tuple();
     }
 
+    template<uint16_t PORT>
     template<typename T>
-    unique_ptr<GenericReply> generic::api_dispatcher::serialize(T& data) {
+    unique_ptr<GenericReply> generic::api_dispatcher<PORT>::serialize(T& data) {
         unique_ptr<GenericReply> reply = make_unique<GenericReply>();
         reply->set_code(GenericReply::SUCCESS);
 //        reply->body().PackFrom(data); // TODO
         return move(reply);
     }
-
 
 }
 

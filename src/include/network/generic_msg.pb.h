@@ -504,7 +504,7 @@ class GenericMsg final :
   std::string* _internal_mutable_api();
   public:
 
-  // optional .google.protobuf.Any body = 3;
+  // optional .google.protobuf.any body = 3;
   bool has_body() const;
   private:
   bool _internal_has_body() const;
@@ -993,7 +993,7 @@ GenericMsg::params() const {
   return params_;
 }
 
-// optional .google.protobuf.Any body = 3;
+// optional .google.protobuf.any body = 3;
 inline bool GenericMsg::_internal_has_body() const {
   bool value = (_has_bits_[0] & 0x00000001u) != 0;
   PROTOBUF_ASSUME(!value || body_ != nullptr);

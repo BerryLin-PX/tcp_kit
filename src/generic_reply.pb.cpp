@@ -244,7 +244,7 @@ const char* GenericReply::_InternalParse(const char* ptr, ::_pbi::ParseContext* 
         } else
           goto handle_unusual;
         continue;
-      // optional .google.protobuf.Any body = 3;
+      // optional .google.protobuf.any body = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_body(), ptr);
@@ -299,7 +299,7 @@ uint8_t* GenericReply::_InternalSerialize(
         2, this->_internal_msg(), target);
   }
 
-  // optional .google.protobuf.Any body = 3;
+  // optional .google.protobuf.any body = 3;
   if (_internal_has_body()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(3, _Internal::body(this),
@@ -331,7 +331,7 @@ size_t GenericReply::ByteSizeLong() const {
           this->_internal_msg());
     }
 
-    // optional .google.protobuf.Any body = 3;
+    // optional .google.protobuf.any body = 3;
     if (cached_has_bits & 0x00000002u) {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(

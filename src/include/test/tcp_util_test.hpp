@@ -230,7 +230,7 @@ namespace tcp_kit {
 
         static enum bufferevent_filter_result
         first_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, bufferevent_flush_mode mode, void *ctx) {
-            log_info("First filter");
+            log_info("Last filter");
             char buf[1024];
             int n;
             while ((n = evbuffer_remove(src, buf, sizeof(buf))) > 0) {

@@ -82,7 +82,7 @@ namespace tcp_kit {
             SSL_CTX_free(ctx);
         }
 
-        void ssl_connect(event_context* ctx) {
+        void openssl_filter::connect(event_context* ctx) {
             bufferevent* ssl_bev = bufferevent_openssl_filter_new(bufferevent_get_base(ctx->bev),
                                                                   ctx->bev,
                                                                   SSL_new(ssl_ctx_guard::singleton.ctx),
@@ -95,7 +95,6 @@ namespace tcp_kit {
             }
         }
 
-        const filter ssl = filter::make<ssl_connect>();
 
     }
 

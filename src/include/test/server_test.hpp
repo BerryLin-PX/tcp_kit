@@ -169,7 +169,7 @@ namespace tcp_kit {
         }
 
         void t13() {
-
+            server<generic> svr;
         }
 
 //        template <typename T, typename D = std::default_delete<T>>

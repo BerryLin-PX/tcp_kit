@@ -260,7 +260,7 @@ class GenericReply final :
   std::string* _internal_mutable_msg();
   public:
 
-  // optional .google.protobuf.Any body = 3;
+  // optional .google.protobuf.any body = 3;
   bool has_body() const;
   private:
   bool _internal_has_body() const;
@@ -400,7 +400,7 @@ inline void GenericReply::set_allocated_msg(std::string* msg) {
   // @@protoc_insertion_point(field_set_allocated:tcp_kit.GenericReply.msg)
 }
 
-// optional .google.protobuf.Any body = 3;
+// optional .google.protobuf.any body = 3;
 inline bool GenericReply::_internal_has_body() const {
   bool value = (_has_bits_[0] & 0x00000002u) != 0;
   PROTOBUF_ASSUME(!value || body_ != nullptr);

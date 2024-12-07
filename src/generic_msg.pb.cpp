@@ -677,7 +677,7 @@ const char* GenericMsg::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // optional .google.protobuf.Any body = 3;
+      // optional .google.protobuf.any body = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_body(), ptr);
@@ -733,7 +733,7 @@ uint8_t* GenericMsg::_InternalSerialize(
         InternalWriteMessage(2, repfield, repfield.GetCachedSize(), target, stream);
   }
 
-  // optional .google.protobuf.Any body = 3;
+  // optional .google.protobuf.any body = 3;
   if (_internal_has_body()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(3, _Internal::body(this),
@@ -770,7 +770,7 @@ size_t GenericMsg::ByteSizeLong() const {
         this->_internal_api());
   }
 
-  // optional .google.protobuf.Any body = 3;
+  // optional .google.protobuf.any body = 3;
   cached_has_bits = _has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     total_size += 1 +

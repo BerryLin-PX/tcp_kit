@@ -4,7 +4,7 @@
 
 namespace tcp_kit {
 
-    server_base::server_base(): _ctl(0) { }
+    server_base::server_base(filter_chain filters_): _ctl(NEW), _filters(filters_) { }
 
     void server_base::trans_to(uint32_t rs) {
         unique_lock<mutex> lock(_mutex);
@@ -33,52 +33,6 @@ namespace tcp_kit {
         return _ctl.load(memory_order_acquire) >= rs;
     }
 
-    void server_base::append_filter(const filter& filter_) {
-        check_filter_duplicate(filter_);
-        _filters.push_back(move(filter_));
-    }
-
-    void server_base::add_filter_before(const filter& what, const filter& filter_) {
-        check_filter_duplicate(filter_);
-        auto it = _filters.begin();
-        for (; it != _filters.end(); ++it) {
-            if (*it == what) {
-                break;
-            }
-        }
-        _filters.insert(it, filter_);
-    }
-
-    void server_base::add_filter_after(const filter& what, const filter& filter_) {
-        check_filter_duplicate(filter_);
-        auto it = _filters.begin();
-        for (; it != _filters.end(); ++it) {
-            if (*it == what) {
-                ++it;
-                break;
-            }
-        }
-        _filters.insert(it, filter_);
-    }
-
-    void server_base::check_filter_duplicate(const filter& filter_) {
-        for(const filter& f : _filters) {
-            if(f == filter_) {
-                throw invalid_argument("The builtin of this type is already present in the builtin chain.");
-            }
-        }
-    }
-
-    void server_base::replace_filters(vector<filter>&& filters) {
-        _filters = vector<filter>();
-        for(const filter& f : filters) {
-            append_filter(f);
-        }
-    }
-
-    void server_base::check_filters_validity() {
-    }
-
     // -----------------------------------------------------------------------------------------------------------------
 
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
@@ -93,41 +47,31 @@ namespace tcp_kit {
     }
 
     void ev_handler_base::call_conn_filters(event_context* ctx) {
-        for(const filter& f : *_filters) {
-            if(f.connect) {
-                f.connect(ctx);
-            }
-        }
+//        for(const filter& f : *_filters) {
+//            if(f.connect) {
+//                f.connect(ctx);
+//            }
+//        }
     }
 
     void ev_handler_base::register_read_write_filters(event_context* ctx) {
-        for(auto it = _filters->begin(); it != _filters->end(); ++it) {
-            if(it->read || it->write) {
-                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,it->write,
-                                                                 BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
-                if(nested_bev) {
-                    ctx->bev = nested_bev;
-                } else {
-                    throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", distance(_filters->begin(), it));
-                }
-            }
-        }
+//        for(auto it = _filters->begin(); it != _filters->end(); ++it) {
+//            if(it->read || it->write) {
+//                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,it->write,
+//                                                                 BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
+//                if(nested_bev) {
+//                    ctx->bev = nested_bev;
+//                } else {
+//                    throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", distance(_filters->begin(), it));
+//                }
+//            }
+//        }
     }
 
-    void ev_handler_base::call_process_filters(const event_context *ctx) {
-        raw_ptr_deleter deleter = [](void* ptr) { delete static_cast<raw_buffer*>(ptr); };
-        auto next_arg = unique_ptr<void, raw_ptr_deleter>(new raw_buffer(bufferevent_get_input(ctx->bev)), deleter);
-        for(auto it = _filters->begin(); it != _filters->end(); ++it) {
-            const type_info* in_t = &typeid(raw_buffer);
-            const type_info* out_t = nullptr;
-            try {
-                next_arg = it->process(ctx, move(next_arg), in_t, out_t);
-                in_t = out_t;
-            } catch (const generic_error<PRCS_ARG_MISMATCHED>& err) {
-                log_warn(err.what());
-                continue;
-            }
-        }
+
+    unique_ptr<evbuffer_taker> ev_handler_base::call_process_filters(event_context *ctx) {
+        auto taker = make_unique<evbuffer_taker>(bufferevent_get_input(ctx->bev));
+        return _filters->process(ctx, move(taker));
     }
 
     // -----------------------------------------------------------------------------------------------------------------
