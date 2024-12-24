@@ -1,23 +1,23 @@
 #ifndef TCP_KIT_SERVER_H
 #define TCP_KIT_SERVER_H
 
-#include <cstdint>
+#include <cstdlib>
+#include <util/int_types.h>
 #include <logger/logger.h>
 #include <thread/thread_pool.h>
 #include <util/tcp_util.h>
 #include <util/system_util.h>
-#include <concurrent/blocking_fifo.hpp>
-#include <concurrent/lock_free_fifo.hpp>
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
-#include <network/filter.h>
 #include <network/filter_chain.h>
+#include <concurrent/lock_free_queue.h>
+#include <concurrent/lock_free_spsc_queue.h>
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
 
-#define EV_HANDLER_EXCEPT_SCALE  0.28f
+#define EV_HANDLER_EXCEPT_SCALE  0.3f
 
 #define EV_HANDLER_OFFSET        14
 #define STATE_OFFSET             28
@@ -57,11 +57,11 @@ namespace tcp_kit {
         static constexpr uint32_t SHUTDOWN   = 4 << STATE_OFFSET;
         static constexpr uint32_t TERMINATED = 5 << STATE_OFFSET;
 
-        // [4][14][14]: run_state | n_of_acceptor | n_of_ev_handler | n_of_handler
-        atomic<uint32_t>          _ctl;
-        mutex                     _mutex;
-        condition_variable_any    _state;
-        filter_chain              _filters;
+        // [4][14][14]: run_state | n_of_ev_handler | n_of_handler
+        std::atomic<uint32_t>       _ctl;
+        std::mutex                  _mutex;
+        std::condition_variable_any _state;
+        filter_chain                _filters;
 
         virtual void try_ready() = 0;
         void trans_to(uint32_t rs);
@@ -78,7 +78,7 @@ namespace tcp_kit {
     class ev_handler_base {
 
     public:
-        vector<handler_base*> handlers;
+        std::vector<handler_base*> handlers;
 
         void bind_and_run(server_base* server_ptr);
         // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应在此处进行初始化
@@ -94,7 +94,7 @@ namespace tcp_kit {
 
         void call_conn_filters(event_context* ctx);
         void register_read_write_filters(event_context* ctx);
-        unique_ptr<evbuffer_taker> call_process_filters(event_context* ctx);
+        std::unique_ptr<evbuffer_holder> call_process_filters(event_context* ctx);
 
     };
 
@@ -106,15 +106,13 @@ namespace tcp_kit {
         virtual void run() = 0;
         virtual ~handler_base();
 
-        bool compete;
+        using msg = int;
+        bool race;
+        std::unique_ptr<queue<msg>> msg_queue;
 
     protected:
-        using msg = int;
-        using b_fifo  = blocking_fifo<msg>;
-        using lf_fifo = lock_free_fifo<msg>;
 
-        server_base*  _server;
-        atomic<void*> _fifo;
+        server_base* _server;
 
     };
 
@@ -141,17 +139,20 @@ namespace tcp_kit {
     //      使用 api_dispatcher_p 代替实际类型, 如: using filters = type_list<filter1, api_dispatcher_p>
     //
     // 线程的分配:
-    // n_ev_handler -> 处理连接事件线程数(一般是读、写)
-    // n_handler    -> 处理消息线程数
+    //   ev_handler -> 处理连接事件线程(一般是读、写)
+    //   handler    -> 处理消息线程
     //
-    // 默认情况下(CPU 核心数 > 1):
-    //      ev_handler_base 线程数量为目标值 * 2, 目标是占 CPU 核心数的 30% (四舍五入)
-    //      handler_base    线程数量为 (CPU核心数 - 1 - ev_handler目标值), 且最少为 1
+    // 默认的分配规则:
+    //   ev_handler 线程数: CPU 核心数 * 0.3
+    //   handler    线程数: CPU 核心数 - ev_handler 线程数
+    //   ev_handler 与 handler 线程数量必须满足倍数关系, 所以在计算完线程分配后将进行调整
     //
-    // 假设 CPU 核心数是 4, ev_handler_base 线程数为 1 * 2 = 2, handler_base 线程数为 4 - 1 = 3
+    // 默认的线程配置综合运行效率与各类角色的业务逻辑 (ev_handler_base 属于 IO 密集型, handler_base 属于 IO 密集型或 CPU 密集型)
+    // 考虑, 尽量避免线程上下文切换
     //
-    // ** 当 CPU 核心数为 1 时, ev_handler_base 与 handler_base 共用一个线程 **
-    // 默认的线程配置综合运行效率与各类角色的业务逻辑 (ev_handler_base 属于 IO 密集型, handler_base 属于 CPU 密集型) 考虑, 尽量避免线程上下文切换
+    // 消息队列
+    //   ev_handler 和 handler 使用队列传递消息. 根据它们线程数的不同, 自动选择使用是否支持在多线程同步的队列, 在分配线程时尽量不要使
+    //   ev_handler 的线程数多于 handler 的线程数, 这将产生竞争
 
     // 生命周期函数:
     //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
@@ -185,14 +186,16 @@ namespace tcp_kit {
         friend ev_handler_t;
         friend handler_t;
 
-        atomic<uint32_t>          _ready_threads;
-        unique_ptr<thread_pool>   _threads;
-        vector<ev_handler_t>      _ev_handlers;
-        vector<handler_t>         _handlers;
+        std::atomic<uint32_t>          _ready_threads;
+        std::unique_ptr<thread_pool>   _threads;
+        std::vector<ev_handler_t>      _ev_handlers;
+        std::vector<handler_t>         _handlers;
 
         void try_ready() override;
         virtual void when_ready();
 
+        inline bool is_multiple(uint16_t a, uint16_t b);
+        void adjust_to_multiple(uint16_t& a, uint16_t& b);
         uint16_t n_of_ev_handler();
         uint16_t n_of_handler();
 
@@ -201,17 +204,18 @@ namespace tcp_kit {
     template <typename Protocols, uint16_t PORT>
     server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler) : server_base(filter_chain::make(filters{})) {
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
-            throw invalid_argument("Illegal Parameter.");
+            throw std::invalid_argument("Illegal Parameter.");
         _ctl |= NEW;
         uint16_t n_of_processor = (uint16_t) numb_of_processor();
         if(n_of_processor != 1) {
             uint16_t expect = uint16_t((n_of_processor * EV_HANDLER_EXCEPT_SCALE) + 0.5);
             if(!n_ev_handler) n_ev_handler = expect << 1;
-            if(!n_handler) n_handler = n_of_processor - 1 - expect;
-        } else if(n_ev_handler || n_handler) {
+            if(!n_handler) n_handler = n_of_processor - expect;
+        } else {
             if(!n_ev_handler) n_ev_handler = 1;
             if(!n_handler) n_handler = 1;
         }
+        adjust_to_multiple(n_ev_handler, n_handler);
         _ctl |= (n_ev_handler << EV_HANDLER_OFFSET);
         _ctl |= n_handler;
     }
@@ -225,40 +229,37 @@ namespace tcp_kit {
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;
         //log_debug("The server will start %d event handler_base thread(s) and %d handler_base thread(s)", n_ev_handler, n_handler);
-        _threads = make_unique<thread_pool>(n_thread,n_thread,0l, make_unique<blocking_fifo<runnable>>(n_thread));
-        if(n_ev_handler) {
-            _ev_handlers = vector<ev_handler_t>(n_ev_handler);
-            _handlers = vector<handler_t>(n_handler);
-            for(uint16_t i = 0; i < max(n_ev_handler, n_handler); ++i) {
-                if(i < min(n_ev_handler, n_handler)) {
-                    _ev_handlers[i].handlers.push_back(&_handlers[i]);
-                    _handlers[i].compete = n_ev_handler > n_handler;
-                    _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
-                    _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    //log_debug("n(th) of handler_base: %d | _fifo: %s", i + 1, n_ev_handler > n_handler ? "blocking" : "lock free");
-                } else if (i < n_ev_handler) { // ev_handler_base 线程多于 handler_base 时
-                    for(uint16_t j = 0; j < n_ev_handler; ++j) {
-                        _ev_handlers[i].handlers.push_back(&_handlers[j]);
-                    }
-                    _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[i], this);
-                } else { // ev_handler_base 线程少于 handler_base 时
-                    uint16_t n_share = uint16_t(float(n_ev_handler) / float(n_handler - n_ev_handler) + 0.5);
-                    uint16_t start = n_share * (i - n_ev_handler);
-                    uint16_t end = (i + 1 == n_handler) ? n_ev_handler : start + n_share;
-                    for(uint16_t j = start; j < end; j++) {
-                        _ev_handlers[j].handlers.push_back(&_handlers[i]);
-                    }
-                    _handlers[i].compete = end - start > 1;
-                    _threads->execute(&handler_t::bind_and_run, &_handlers[i], this);
-                    //log_debug("N(th) of handler_base: %d | _fifo: %s", i + 1, end - start > 1 ? "blocking" : "lock free");
+        _threads = std::make_unique<thread_pool>(n_thread, n_thread, 0l, std::make_unique<blocking_fifo<runnable>>(n_thread));
+        _ev_handlers = std::vector<ev_handler_t>(n_ev_handler);
+        _handlers = std::vector<handler_t>(n_handler);
+        if(n_ev_handler > n_handler) {
+            uint16_t n_share = n_ev_handler / n_handler;
+            for(uint16_t handler_i = 0; handler_i < n_handler; ++handler_i) {
+                for(uint16_t j = 0; j < n_share; ++j) {
+                    uint16_t ev_handler_i = handler_i * n_share + j;
+                    _ev_handlers[ev_handler_i].handlers.push_back(&_handlers[handler_i]);
+                    _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[ev_handler_i], this);
                 }
+                _handlers[handler_i].race = true;
+                _threads->execute(&handler_t::bind_and_run, &_handlers[handler_i], this);
             }
-            wait_at_least(READY);
-            when_ready();
-            trans_to(RUNNING);
-            log_info("The server is started on port: %d", PORT);
-            wait_at_least(SHUTDOWN);
+        } else {
+            uint16_t n_own = n_handler / n_ev_handler;
+            for(uint16_t ev_handler_i = 0; ev_handler_i < n_ev_handler; ++ev_handler_i) {
+                for(uint16_t j = 0; j < n_own; ++j) {
+                    uint16_t handler_i = ev_handler_i * n_own + j;
+                    _handlers[handler_i].race = false;
+                    _ev_handlers[ev_handler_i].handlers.push_back(&_handlers[handler_i]);
+                    _threads->execute(&handler_t::bind_and_run, &_handlers[handler_i], this);
+                }
+                _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[ev_handler_i], this);
+            }
         }
+        wait_at_least(READY);
+        when_ready();
+        trans_to(RUNNING);
+        log_info("The server is started on port: %d", PORT);
+        wait_at_least(SHUTDOWN);
     }
 
     template<typename Protocols, uint16_t PORT>
@@ -278,13 +279,44 @@ namespace tcp_kit {
     void server<Protocols, PORT>::when_ready() { }
 
     template <typename Protocols, uint16_t PORT>
-    inline uint16_t server<Protocols, PORT>::n_of_ev_handler() {
-        return (_ctl.load(memory_order_relaxed) >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY;
+    bool server<Protocols, PORT>::is_multiple(uint16_t a, uint16_t b) {
+        return a % b == 0 || b % a == 0;
+    }
+
+    // 以最小的调整次数, 将两整数 ab 调整为倍数关系.
+    // 在同等调整次数的情况下, 一增一减优于同增同减. 一增一减的情况下, a 减 b 增优于 a 增 b 减; 同增同减的情况下, 同增优于同减
+    // 输入
+    //   @a: 前者 u16 引用
+    //   @b: 后者 u16 引用
+    template <typename Protocols, uint16_t PORT>
+    void server<Protocols, PORT>::adjust_to_multiple(uint16_t& a, uint16_t& b) {
+        if(!is_multiple(a, b)) {
+            uint16_t max = std::abs(a - b);
+            for(uint16_t limit = 1; limit <= max; ++limit) {
+                for(uint16_t step_a = 0; step_a <= limit; ++step_a) {
+                    uint16_t step_b = limit - step_a;
+                    if(is_multiple(a - step_a, b + step_b)) {
+                        a -= step_a; b += step_b; return;
+                    } else if(is_multiple(a + step_a, b - step_b)) {
+                        a += step_a; b -= step_b; return;
+                    } else if(is_multiple(a + step_a, b + step_b)) {
+                        a += step_a; b += step_b; return;
+                    } else if(is_multiple(a - step_a, b - step_b)) {
+                        a -= step_a; b -= step_b; return;
+                    }
+                }
+            }
+        }
+    }
+
+    template <typename Protocols, uint16_t PORT>
+    uint16_t server<Protocols, PORT>::n_of_ev_handler() {
+        return (_ctl.load(std::memory_order_relaxed) >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY;
     }
 
     template <typename Protocols, uint16_t PORT>
     inline uint16_t server<Protocols, PORT>::n_of_handler() {
-        return _ctl.load(memory_order_relaxed) & HANDLER_CAPACITY;
+        return _ctl.load(std::memory_order_relaxed) & HANDLER_CAPACITY;
     }
 
 }

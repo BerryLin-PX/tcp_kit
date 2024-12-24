@@ -5,14 +5,12 @@
 
 namespace tcp_kit {
 
-    using namespace std;
-
     // interrupt_flag
     interrupt_flag::interrupt_flag() noexcept: _thread_cond(0), _thread_cond_any(0) { }
 
     void interrupt_flag::set() {
         _flag.store(true, std::memory_order_relaxed);
-        lock_guard<mutex> lk(_set_clear_mutex);
+        std::lock_guard<std::mutex> lk(_set_clear_mutex);
         if(_thread_cond)
             _thread_cond->notify_all();
         else if(_thread_cond_any)
@@ -23,13 +21,13 @@ namespace tcp_kit {
         return _flag.load(std::memory_order_relaxed);
     }
 
-    void interrupt_flag::set_condition_variable(condition_variable& cv) {
-        lock_guard<mutex> lk(_set_clear_mutex);
+    void interrupt_flag::set_condition_variable(std::condition_variable& cv) {
+        std::lock_guard<std::mutex> lk(_set_clear_mutex);
         _thread_cond = &cv;
     }
 
     void interrupt_flag::clear_condition_variable() {
-        lock_guard<mutex> lk(_set_clear_mutex);
+        std::lock_guard<std::mutex> lk(_set_clear_mutex);
         _thread_cond = 0;
     }
 
@@ -43,17 +41,17 @@ namespace tcp_kit {
     }
 
     // interruptible_thread
-    interruptible_thread::interruptible_thread(function<void()> task): _runnable((move(task))), _state(NEW) {
+    interruptible_thread::interruptible_thread(std::function<void()> task): _runnable((move(task))), _state(NEW) {
 
     }
 
-    void interruptible_thread::set_runnable(function<void()> task) {
+    void interruptible_thread::set_runnable(std::function<void()> task) {
         this->_runnable = move(task);
     }
 
     void interruptible_thread::start() {
-        promise<interrupt_flag*> p;
-        _internal_thread = unique_ptr<thread>(new thread(([this, &p] {
+        std::promise<interrupt_flag*> p;
+        _internal_thread = std::unique_ptr<std::thread>(new std::thread(([this, &p] {
             p.set_value(&this_thread_interrupt_flag);
             _state = ALIVE;
             try {

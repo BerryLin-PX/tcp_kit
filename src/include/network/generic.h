@@ -36,7 +36,7 @@ namespace tcp_kit {
         protected:
             server<generic, PORT>* _server;
             event_base*            _ev_base;
-            mutex                  _mutex;
+            std::mutex             _mutex;
             evconnlistener*        _evc;
 
             void init(server_base* server_ptr) override;
@@ -59,19 +59,19 @@ namespace tcp_kit {
 
         public:
 
-            static unique_ptr<GenericReply> process(const event_context* ctx, unique_ptr<GenericMsg> msg);
+            static std::unique_ptr<GenericReply> process(const event_context* ctx, std::unique_ptr<GenericMsg> msg);
 
             template<typename Processor>
-            static void api(const string& id, Processor prcs);
+            static void api(const std::string& id, Processor prcs);
 
             template<typename T>
-            static unique_ptr<GenericReply> serialize(T& data);
+            static std::unique_ptr<GenericReply> serialize(T& data);
 
             template<typename Tuple>
-            static Tuple deserialize(unique_ptr<GenericMsg>&);
+            static Tuple deserialize(std::unique_ptr<GenericMsg>&);
 
         private:
-            using map_t = unordered_map<string , function<unique_ptr<GenericReply>(unique_ptr<GenericMsg>)>>;
+            using map_t = std::unordered_map<std::string , std::function<std::unique_ptr<GenericReply>(std::unique_ptr<GenericMsg>)>>;
             static map_t _api_map;
 
         };
@@ -89,14 +89,14 @@ namespace tcp_kit {
         }
         event_context* ctx = new event_context{fd, address, socklen, bev};
         try {
-             ev_handler->call_conn_filters(ctx);
-             ev_handler->register_read_write_filters(ctx);
+            ev_handler->call_conn_filters(ctx);
+            ev_handler->register_read_write_filters(ctx);
             if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
-                bufferevent_setcb(ctx->bev,read_callback, write_callback, event_callback, ctx);
+                bufferevent_setcb(ctx->bev, read_callback, write_callback, event_callback, ctx);
             } else {
                 throw generic_error<CONS_BEV_FAILED>("Failed to enable the events of bufferevent");
             }
-        } catch (const exception& err) {
+        } catch (const std::exception& err) {
             log_error(err.what());
             bufferevent_free(ctx->bev);
             delete ctx;
@@ -106,8 +106,9 @@ namespace tcp_kit {
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::read_callback(bufferevent *bev, void *arg) {
         try {
-            generic::ev_handler<PORT>* ev_handler = static_cast<generic::ev_handler<PORT>*>(arg);
-        } catch (const exception& err) {
+            generic::ev_handler<PORT>* ev_handler_ = static_cast<generic::ev_handler<PORT>*>(arg);
+
+        } catch (const std::exception& err) {
             log_error(err.what());
         }
     }
@@ -154,16 +155,16 @@ namespace tcp_kit {
     typename generic::api_dispatcher<PORT>::map_t generic::api_dispatcher<PORT>::_api_map;
 
     template<uint16_t PORT>
-    unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(const event_context* ctx, unique_ptr<GenericMsg> msg) {
+    std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(const event_context* ctx, std::unique_ptr<GenericMsg> msg) {
         api_dispatcher<PORT>::_api_map.find(msg->api())->second(move(msg));
     }
 
     template<uint16_t PORT>
     template<typename Processor>
-    void generic::api_dispatcher<PORT>::api(const string& id, Processor prcs) {
+    void generic::api_dispatcher<PORT>::api(const std::string& id, Processor prcs) {
         using result_t = typename func_traits<Processor>::result_type;
         using args_t = typename func_traits<Processor>::args_type;
-        api_dispatcher<PORT>::_api_map[id] = [prcs](unique_ptr<GenericMsg> msg) -> unique_ptr<GenericReply> {
+        api_dispatcher<PORT>::_api_map[id] = [prcs](std::unique_ptr<GenericMsg> msg) -> std::unique_ptr<GenericReply> {
             args_t args = deserialize<args_t>(msg);
             result_t res = call(prcs, move(args));
             return serialize(res);
@@ -176,44 +177,44 @@ namespace tcp_kit {
     template<typename T, typename... Any>
     struct match_any {
 
-        using tp = tuple<Any...>;
+        using tp = std::tuple<Any...>;
 
         template<size_t N>
         static constexpr bool or_conditions() {
-            return is_same<T, tuple_element_t<N, tp>>::value || or_conditions<N - 1>();
+            return std::is_same<T, typename std::tuple_element<N, tp>::type>::value || or_conditions<N - 1>();
         }
 
         template<>
         static constexpr bool or_conditions<0>() {
-            return is_same<T, tuple_element_t<0, tp>>::value;
+            return std::is_same<T, typename std::tuple_element<0, tp>::type>::value;
         }
 
-        static constexpr bool value = or_conditions<tuple_size<tp>::value - 1>();
+        static constexpr bool value = or_conditions<std::tuple_size<tp>::value - 1>();
 
     };
 
     template<typename T>
-    struct match_basic_type : match_any<T, uint32_t, int32_t, uint64_t, int64_t, float, double, bool, string> {};
+    struct match_basic_type : match_any<T, uint32_t, int32_t, uint64_t, int64_t, float, double, bool, std::string> {};
 
 
     template<typename Tuple, size_t N>
     struct infer_offset {
-        static constexpr int32_t value = (match_basic_type<tuple_element_t<N, Tuple>>::value ? 1 : 0) +
-                                        infer_offset<Tuple, N - 1>::value;
+        static constexpr int32_t value = (match_basic_type<typename std::tuple_element<N, Tuple>>::type ? 1 : 0) +
+                                         infer_offset<Tuple, N - 1>::value;
     };
 
     template<typename Tuple>
     struct infer_offset<Tuple, 0> {
-        static constexpr int32_t value = match_basic_type<tuple_element_t<0, Tuple>>::value ? 0 : -1;
+        static constexpr int32_t value = match_basic_type<typename std::tuple_element<0, Tuple>::type>::value ? 0 : -1;
     };
 
     template<typename T, uint32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<!is_base_of<google::protobuf::Message, T>::value && !match_basic_type<T>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<!std::is_base_of<google::protobuf::Message, T>::value && !match_basic_type<T>::value>::type* = nullptr) {
         throw generic_error<UNSUPPORTED_TYPE>("Only the following types are supported as parameters for the API handler: [unsigned int 32, signed int 32, unsigned int 64, signed int 64, float, double, boolean, string, any type that conforms to the Protobuf 3 specification].", typeid(T).name());
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_base_of<google::protobuf::Message, T>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_base_of<google::protobuf::Message, T>::value>::type* = nullptr) {
         T t;
         if(msg->body().UnpackTo(&t)) {
             return move(t);
@@ -223,7 +224,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, uint32_t>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, uint32_t>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_u32()) {
             return p.u32();
@@ -233,7 +234,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, int32_t>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, int32_t>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_s32()) {
             return p.s32();
@@ -243,7 +244,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, uint64_t>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, uint64_t>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_u64()) {
             return p.u64();
@@ -253,7 +254,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, int64_t>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, int64_t>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_s64()) {
             return p.s64();
@@ -263,7 +264,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, float>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, float>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_f()) {
             return p.f();
@@ -273,7 +274,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, double>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, double>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_d()) {
             return p.d();
@@ -283,7 +284,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, bool>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, bool>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_b()) {
             return p.b();
@@ -293,7 +294,7 @@ namespace tcp_kit {
     }
 
     template<typename T, int32_t Offset>
-    T unpack_to(unique_ptr<GenericMsg>& msg, typename enable_if<is_same<T, std::string>::value>::type* = nullptr) {
+    T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, std::string>::value>::type* = nullptr) {
         Param p = msg->params(Offset);
         if(p.has_str()) {
             return p.str();
@@ -303,14 +304,14 @@ namespace tcp_kit {
     }
 
     template<typename Tuple, size_t... I>
-    Tuple unpack(index_seq<I...>, unique_ptr<GenericMsg>& msg) {
-        return {unpack_to<tuple_element_t<I, Tuple>, infer_offset<Tuple, I>::value>(msg)...};
+    Tuple unpack(index_seq<I...>, std::unique_ptr<GenericMsg>& msg) {
+        return {unpack_to<typename std::tuple_element<I, Tuple>::type, infer_offset<Tuple, I>::value>(msg)...};
     }
 
     template<uint16_t PORT>
     template<typename Tuple>
-    Tuple generic::api_dispatcher<PORT>::deserialize(unique_ptr<GenericMsg>& msg) {
-        if(tuple_size<Tuple>::value && (msg->params_size() || msg->has_body())) {
+    Tuple generic::api_dispatcher<PORT>::deserialize(std::unique_ptr<GenericMsg>& msg) {
+        if(std::tuple_size<Tuple>::value && (msg->params_size() || msg->has_body())) {
             return unpack<Tuple>(make_index_seq<Tuple>(), msg);
         }
         return Tuple();
@@ -318,8 +319,8 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     template<typename T>
-    unique_ptr<GenericReply> generic::api_dispatcher<PORT>::serialize(T& data) {
-        unique_ptr<GenericReply> reply = make_unique<GenericReply>();
+    std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::serialize(T& data) {
+        std::unique_ptr<GenericReply> reply = std::make_unique<GenericReply>();
         reply->set_code(GenericReply::SUCCESS);
 //        reply->body().PackFrom(data); // TODO
         return move(reply);

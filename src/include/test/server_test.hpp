@@ -1,6 +1,7 @@
 #include <logger/logger.h>
 #include <network/server.h>
 #include "include/network/generic.h"
+#include "concurrent/lock_free_fifo.hpp"
 #include <tuple>
 #include <type_traits>
 #include <util/func_traits.h>
@@ -11,21 +12,49 @@ namespace tcp_kit {
 
         using namespace std;
 
+        bool is_multiple(uint16_t a, uint16_t b) {
+            return a % b == 0 || b % a == 0;
+        }
+
+        void adjust_to_multiple(uint16_t& a, uint16_t& b) {
+            if(!is_multiple(a, b)) {
+                uint16_t max = std::abs(a - b);
+                for(uint16_t limit = 1; limit <= max; ++limit) {
+                    for(uint16_t step_a = 0; step_a <= limit; ++step_a) {
+                        uint16_t step_b = limit - step_a;
+                        if(is_multiple(a - step_a, b + step_b)) {
+                            a -= step_a; b += step_b; return;
+                        } else if(is_multiple(a + step_a, b - step_b)) {
+                            a += step_a; b -= step_b; return;
+                        } else if(is_multiple(a + step_a, b + step_b)) {
+                            a += step_a; b += step_b; return;
+                        } else if(is_multiple(a - step_a, b - step_b)) {
+                            a -= step_a; b -= step_b; return;
+                        }
+                    }
+                }
+            }
+        }
+
         uint32_t n_with_scale(uint16_t n_of_processor, float scale, uint16_t n_ev_handler = 0, uint16_t n_handler = 0) {
             uint32_t _ctl = 0;
             if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
                 throw invalid_argument("Illegal Parameter");
             if(n_of_processor != 1) {
-                uint16_t expect = (uint16_t) ((n_of_processor * scale) + 0.5);
-                if(!n_ev_handler) n_ev_handler = expect << 1;
+                uint16_t expect = uint16_t((n_of_processor * scale) + 0.5);
+                // if(!n_ev_handler) n_ev_handler = expect << 1;
+                if(!n_ev_handler) n_ev_handler = expect;
                 if(!n_handler) n_handler = n_of_processor - expect;
-//                if(!n_handler) n_handler = 1;
-            } else if(n_ev_handler | n_handler) {
+            } else {
                 if(!n_ev_handler) n_ev_handler = 1;
                 if(!n_handler) n_handler = 1;
             }
-            _ctl = _ctl | (n_ev_handler << EV_HANDLER_OFFSET);
-            _ctl = _ctl | n_handler;
+            auto n_ev_h_temp = n_ev_handler;
+            auto n_h_temp = n_handler;
+            adjust_to_multiple(n_ev_handler, n_handler);
+            log_info("Core: %d | Before adjust: %d-%d | After adjust: %d-%d", n_of_processor, n_ev_h_temp, n_h_temp, n_ev_handler, n_handler);
+            _ctl |= (n_ev_handler << EV_HANDLER_OFFSET);
+            _ctl |= n_handler;
             return _ctl;
         }
 
@@ -104,28 +133,27 @@ namespace tcp_kit {
             t7();
         }
 
-        // 当 ev_handler_base 线程数不等于 handler_base 线程数时, 就认为存在竞争, 所以应尽量让他们的数量相等
-        // 1. ev_handler_base 线程数量多于 handler_base 数量时:
-        //      假设 ev_handler_base: 4, handler_base:3 那么首先三个 ev_handler_base 线程各自被分配一个handler 线程,
-        //      多出来的一个 ev_handler_base 线程将轮询将任务分配给这三个 handler_base 线程, 相当于在一个 handler_base 上
-        //      的同一时刻可能存在两个线程竞争, 而另外两个线程不受到影响. 在 ev_handler_base 不过多大于 handler_base
+        // 当 ev_handler 线程数不等于 handler 线程数时, 就认为存在竞争, 所以应尽量让他们的数量相等
+        // 1. ev_handler 线程数量多于 handler 数量时:
+        //      假设 ev_handler: 4, handler:3 那么首先三个 ev_handler 线程各自被分配一个handler 线程,
+        //      多出来的一个 ev_handler 线程将轮询将任务分配给这三个 handler 线程, 相当于在一个 handler 上
+        //      的同一时刻可能存在两个线程竞争, 而另外两个线程不受到影响. 在 ev_handler 不过多大于 handler
         //      的前提下, 竞争是相当小的
-        // 2. ev_handler_base 线程数量少于 handler_base 数量时:
-        //      假设 ev_handler_base: 60, handler_base:69 同样首先为每个 ev_handler_base 线程各自被分配一个handler 线程,
-        //      handler_base 比 ev_handler_base 多出来的 9 个线程将按照 60 / 9 ≈ 6.667 向上取整 => 7 个线程分配一个
-        //      多出来的 handler_base 线程, 也就是 8 组 7 个 ev_handler_base 线程分配8个多出来的 handler_base 线程, 剩下
-        //      4 个 ev_handler_base 线程分配第九个 handler_base 线程, 由于 ev_handler_base 的任务优先递交给自己独占的
-        //      handler_base 线程, 当这个线程无法处理时, 才分配给那个额外的 handler_base 线程, 所以即便 7 个线程有可能
+        // 2. ev_handler 线程数量少于 handler 数量时:
+        //      假设 ev_handler: 60, handler: 69 同样首先为每个 ev_handler 线程各自被分配一个 handler 线程,
+        //      handler 比 ev_handler 多出来的 9 个线程将按照 60 / 9 ≈ 6.667 向上取整 => 7 个线程分配一个
+        //      多出来的 handler 线程, 也就是 8 组 7 个 ev_handler 线程分配8个多出来的 handler 线程, 剩下
+        //      4 个 ev_handler 线程分配第九个 handler 线程, 由于 ev_handler 的任务优先递交给自己独占的
+        //      handler 线程, 当这个线程无法处理时, 才分配给那个额外的 handler 线程, 所以即便 7 个线程有可能
         //      会在这个额外的线程产生竞争, 达到最大竞争的可能性也是很小的
-        // 在测试的 CPU 核心数 1-100 的数量里,
         void t9() {
             float total = 0;
             uint32_t times = 100;
             for(uint32_t i = 1; i <= times; ++i) {
-                auto ctl = n_with_scale(i, 0.28f,0, 0);
+                auto ctl = n_with_scale(i, 0.3f , 0, 0);
                 auto n_ev_handler = (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY;
                 auto n_handler = ctl & HANDLER_CAPACITY;
-                log_info("n_processor: %d | n_ev_handler: %d | n_handler: %d | gap: %d", i, n_ev_handler, n_handler, n_ev_handler - n_handler);
+                // log_info("n_processor: %d | n_ev_handler: %d | n_handler: %d | gap: %d", i, n_ev_handler, n_handler, n_ev_handler - n_handler);
             }
         }
 
@@ -171,42 +199,6 @@ namespace tcp_kit {
         void t13() {
             server<generic> svr;
         }
-
-//        template <typename T, typename D = std::default_delete<T>>
-//        struct check_unique_ptr : std::false_type {};
-//
-//        template <typename T, typename D>
-//        struct check_unique_ptr<unique_ptr<T, D>> : std::true_type {};
-//
-//        template <typename Tuple>
-//        struct check_process_args {
-//            static constexpr bool value =
-//                    is_same<event_context*, tuple_element_t<0, Tuple>>::value &&
-//                    check_unique_ptr<tuple_element_t<1, Tuple>>::value;
-//        };
-//
-//        template <typename T, typename D = std::default_delete<T>>
-//        struct unique_ptr_type {};
-//
-//        template <typename T, typename D>
-//        struct unique_ptr_type<unique_ptr<T, D>> {
-//            using type = T;
-//            using deleter = D;
-//        };
-//
-//        template <typename F>
-//        void call(F func) {
-//            using result_t = typename func_traits<F>::result_type;
-//            using args_t = typename func_traits<F>::args_type;
-//            static_assert(check_unique_ptr<result_t>::value && check_process_args<args_t>::value, "ProcessFilter must conform to the following function signature: unique_ptr<?>(event_context*, unique_ptr<?>)");
-//            log_info("%s", typeid(typename unique_ptr_type<result_t>::type).name());
-//        }
-//
-//        void t13() {
-//            call([](event_context* ctx, unique_ptr<int> arg) -> unique_ptr<char> {
-//               return make_unique<char>();
-//            });
-//        }
 
     }
 

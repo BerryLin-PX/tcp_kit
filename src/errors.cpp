@@ -11,7 +11,7 @@ namespace tcp_kit {
         vsprintf(msg.get(), fmt, args);
         va_end(args);
         msg[msg_len] = '\0';
-        return std::move(std::string(msg.get()));
+        return std::string(msg.get());
     }
 
 

@@ -1,19 +1,20 @@
 #include <network/server.h>
 #include <error/errors.h>
 #include <event2/buffer.h>
+#include <stdint.h>
 
 namespace tcp_kit {
 
     server_base::server_base(filter_chain filters_): _ctl(NEW), _filters(filters_) { }
 
     void server_base::trans_to(uint32_t rs) {
-        unique_lock<mutex> lock(_mutex);
-        _ctl.store(ctl_of(rs, handlers_map()), memory_order_release);
+        std::unique_lock<std::mutex> lock(_mutex);
+        _ctl.store(ctl_of(rs, handlers_map()), std::memory_order_release);
         _state.notify_all();
     }
 
     void server_base::wait_at_least(uint32_t rs) {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         while(!run_state_at_least(rs)) {
             interruption_point();
             interruptible_wait(_state, lock);
@@ -30,7 +31,7 @@ namespace tcp_kit {
     }
 
     inline bool server_base::run_state_at_least(uint32_t rs) {
-        return _ctl.load(memory_order_acquire) >= rs;
+        return _ctl.load(std::memory_order_acquire) >= rs;
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -47,31 +48,37 @@ namespace tcp_kit {
     }
 
     void ev_handler_base::call_conn_filters(event_context* ctx) {
-//        for(const filter& f : *_filters) {
-//            if(f.connect) {
-//                f.connect(ctx);
-//            }
-//        }
+        try {
+            _filters->connects(ctx);
+        } catch (...) {
+            // TODO
+        }
+    }
+
+    inline size_t max(const size_t& a, const size_t& b) {
+        return a > b ? a : b;
     }
 
     void ev_handler_base::register_read_write_filters(event_context* ctx) {
-//        for(auto it = _filters->begin(); it != _filters->end(); ++it) {
-//            if(it->read || it->write) {
-//                bufferevent* nested_bev = bufferevent_filter_new(ctx->bev, it->read,it->write,
-//                                                                 BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
-//                if(nested_bev) {
-//                    ctx->bev = nested_bev;
-//                } else {
-//                    throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", distance(_filters->begin(), it));
-//                }
-//            }
-//        }
+        auto& reads = _filters->reads;
+        auto& writes = _filters->writes;
+        for(size_t i = 0; i < max(reads.size(), writes.size()); ++i) {
+            bufferevent* nested_bev = bufferevent_filter_new(ctx->bev,
+                                                             i < reads.size() ? reads[i] : nullptr,
+                                                             i < writes.size() ? writes[i] : nullptr,
+                                                             BEV_OPT_CLOSE_ON_FREE, nullptr, ctx);
+            if(nested_bev) {
+                ctx->bev = nested_bev;
+            } else {
+                throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", i);
+            }
+        }
     }
 
 
-    unique_ptr<evbuffer_taker> ev_handler_base::call_process_filters(event_context *ctx) {
-        auto taker = make_unique<evbuffer_taker>(bufferevent_get_input(ctx->bev));
-        return _filters->process(ctx, move(taker));
+    std::unique_ptr<evbuffer_holder> ev_handler_base::call_process_filters(event_context *ctx) {
+        auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
+        return _filters->process(ctx, move(holder));
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -79,8 +86,8 @@ namespace tcp_kit {
     void handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server = server_ptr;
-        _fifo.store(compete ? (void*) new b_fifo(TASK_FIFO_SIZE) : (void*) new lf_fifo(TASK_FIFO_SIZE),
-                    memory_order_relaxed);
+        msg_queue = std::move(race ? std::unique_ptr<queue<msg>>(new lock_free_queue<msg>())
+                                   : std::unique_ptr<queue< msg>>(new lock_free_spsc_queue<msg>()));
         init(server_ptr);
         _server->try_ready();
         _server->wait_at_least(server_base::RUNNING);
@@ -89,8 +96,7 @@ namespace tcp_kit {
     }
 
     handler_base::~handler_base() {
-        if(compete) delete static_cast<b_fifo*>(_fifo.load());
-        else        delete static_cast<lf_fifo*>(_fifo.load());
+
     }
 
 }

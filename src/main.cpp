@@ -19,5 +19,6 @@
 
 
 int main() {
+    tcp_kit::server_test::t9();
     return 0;
 }

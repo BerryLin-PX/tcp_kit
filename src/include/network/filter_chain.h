@@ -7,6 +7,7 @@
 #include <util/types.h>
 #include <memory>
 #include <vector>
+#include <array>
 #include <type_traits>
 
 // 通过 filter 介入 tcp 连接的整个生命周期
@@ -39,11 +40,11 @@
 
 namespace tcp_kit {
 
-    class evbuffer_taker {
+    class evbuffer_holder {
 
     public:
         evbuffer* buffer;
-        evbuffer_taker(evbuffer* buffer_): buffer(buffer_) { };
+        evbuffer_holder(evbuffer* buffer_): buffer(buffer_) { };
 
     };
 
@@ -52,12 +53,12 @@ namespace tcp_kit {
     //   @ctx: 事件上下文
     using connect_filter = void (*)(event_context* ctx);
 
-    using process_chain  = std::unique_ptr<evbuffer_taker>(*)(event_context* ctx, std::unique_ptr<evbuffer_taker>);
+    using process_chain  = std::unique_ptr<evbuffer_holder>(*)(event_context* ctx, std::unique_ptr<evbuffer_holder>);
 
     class filter_chain {
 
     public:
-        std::vector<connect_filter>        connects;
+        connect_filter                     connects;
         std::vector<bufferevent_filter_cb> reads;
         std::vector<bufferevent_filter_cb> writes;
         process_chain                      process;
@@ -75,7 +76,7 @@ namespace tcp_kit {
     template<typename Func>
     struct get_arg2_type {
         using tp = typename func_traits<Func>::args_type;
-        using type = typename tuple_element<1, tp>::type;
+        using type = typename std::tuple_element<1, tp>::type;
     };
 
 
@@ -105,7 +106,7 @@ namespace tcp_kit {
     struct check_unique : std::false_type {};
 
     template<typename T>
-    struct check_unique<T, void_t<typename T::element_type, typename T::deleter_type>> : is_same<T, unique_ptr<typename T::element_type, typename T::deleter_type>> {};
+    struct check_unique<T, void_t<typename T::element_type, typename T::deleter_type>> : std::is_same<T, std::unique_ptr<typename T::element_type, typename T::deleter_type>> {};
 
     template<typename T>
     struct process_traits;
@@ -129,10 +130,10 @@ namespace tcp_kit {
     template<typename T>
     struct check_process_filter<T, void_t<decltype(T::process)>> {
         using result_t = typename process_traits<decltype(T::process)>::result_type;
-        using arg_t = typename tuple_element<1, typename process_traits<decltype(T::process)>::args_type>::type;
+        using arg_t = typename std::tuple_element<1, typename process_traits<decltype(T::process)>::args_type>::type;
         static constexpr bool value = check_unique<result_t>::value &&
                                       check_unique<arg_t>::value &&
-                                      is_same<decltype(T::process), result_t(event_context*, arg_t)>::value;
+                                      std::is_same<decltype(T::process), result_t(event_context*, arg_t)>::value;
     };
 
     // 仅保留有 Connect Filter 的过滤器类型
@@ -203,14 +204,24 @@ namespace tcp_kit {
                 type_list<>>;
     };
 
-    template<typename F>
-    void catchable_connect(event_context* ctx) {
-        try {
-            F::connect(ctx);
-        } catch(...) {
+    template<typename First, typename... Others>
+    struct connect_chain_caller {
 
+        static void call(event_context* ctx) {
+            First::connect(ctx);
+            connect_chain_caller<Others...>::call(ctx);
         }
-    }
+
+    };
+
+    template<typename Last>
+    struct connect_chain_caller<Last> {
+
+        static void call(event_context* ctx) {
+            Last::connect(ctx);
+        }
+
+    };
 
     template<typename F>
     bufferevent_filter_result catchable_read(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t dst_limit,
@@ -233,39 +244,39 @@ namespace tcp_kit {
     }
 
     template<typename... F>
-    vector<connect_filter> make_connects(type_list<F...>) {
-        return {&catchable_connect<F>()...};
+    connect_filter make_connect_chain(type_list<F...>) {
+        return &connect_chain_caller<F...>::call;
     }
 
     template<typename... F>
-    vector<bufferevent_filter_cb> make_reads(type_list<F...>) {
+    std::vector<bufferevent_filter_cb> make_reads(type_list<F...>) {
         return {&catchable_read<F>()...};
     }
 
     template<typename... F>
-    vector<bufferevent_filter_cb> make_writes(type_list<F...>) {
+    std::vector<bufferevent_filter_cb> make_writes(type_list<F...>) {
         return {&catchable_write<F>()...};
     }
 
     // 将 Process Filters 调用链展开, A, B, C  -> return C::process(ctx, B::process(ctx, A::process(ctx, move(input))));
     template<typename First, typename... Others>
-    struct process_chain_helper {
-        static decltype(auto) make(event_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
-            return process_chain_helper<Others...>::make(ctx, First::process(ctx, move(input)));
+    struct process_chain_caller {
+        static decltype(auto) call(event_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
+            return process_chain_caller<Others...>::call(ctx, First::process(ctx, move(input)));
         }
     };
 
     template<typename Last>
-    struct process_chain_helper<Last> {
-        static decltype(auto) make(event_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
+    struct process_chain_caller<Last> {
+        static decltype(auto) call(event_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
             return Last::process(ctx, move(input));
         }
     };
 
     template<typename... F>
-    unique_ptr<evbuffer_taker> catchable_process(event_context* ctx, unique_ptr<evbuffer_taker> input) {
+    std::unique_ptr<evbuffer_holder> catchable_process_chain(event_context* ctx, std::unique_ptr<evbuffer_holder> input) {
         try {
-            return process_chain_helper<F...>::make(ctx, move(input));
+            return process_chain_caller<F...>::call(ctx, move(input));
         } catch (...) {
 
         }
@@ -273,15 +284,15 @@ namespace tcp_kit {
 
     template<typename... F>
     process_chain make_process_chain(type_list<F...>) {
-        return &catchable_process<F...>;
+        return &process_chain_caller<F...>::call;
     }
 
     template<typename... F>
     filter_chain filter_chain::make(type_list<F...>) {
         filter_chain chain;
-        chain.connects = make_connects(typename valid_connect_filters<F...>::types{});
-        chain.reads = make_reads(typename valid_read_filters<F...>::types{});
-        chain.writes = make_reads(typename valid_write_filters<F...>::types{});
+        // chain.connects = make_connect_chain(typename valid_connect_filters<F...>::types{});
+        // chain.reads = make_reads(typename valid_read_filters<F...>::types{});
+        // chain.writes = make_reads(typename valid_write_filters<F...>::types{});
         // chain.process = make_process_chain(typename valid_process_filters<F...>::types{});
         return chain;
     }

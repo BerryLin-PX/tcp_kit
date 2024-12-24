@@ -10,8 +10,6 @@
 
 namespace tcp_kit {
 
-    using namespace std;
-
     template <typename T>
     class blocking_fifo {
 
@@ -34,11 +32,11 @@ namespace tcp_kit {
         blocking_fifo<T>& operator=(const blocking_fifo<T>&) = delete;
 
     private:
-        uint32_t  _size;
-        deque<T>  _queue;
-        mutex     _mutex;
-        condition_variable_any  _not_full;
-        condition_variable_any  _not_empty;
+        uint32_t       _size;
+        std::deque<T>  _queue;
+        std::mutex     _mutex;
+        std::condition_variable_any  _not_full;
+        std::condition_variable_any  _not_empty;
 
     };
 
@@ -59,7 +57,7 @@ namespace tcp_kit {
 
     template<typename T>
     bool blocking_fifo<T>::try_push(const T& el) {
-        unique_lock<mutex> lock(_mutex, defer_lock);
+        std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
         if(lock.try_lock() && !full()) {
             _queue.push_back(el);
             return true;
@@ -69,7 +67,7 @@ namespace tcp_kit {
 
     template<typename T>
     void blocking_fifo<T>::push(const T& el) {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         while(full()) {
             interruption_point();
 //            _not_full.wait(lock);
@@ -82,20 +80,20 @@ namespace tcp_kit {
 
     template<typename T>
     void blocking_fifo<T>::push(T&& el) {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         while(full()) {
             interruption_point();
 //            _not_full.wait(lock);
             interruptible_wait(_not_full, lock);
             interruption_point();
         }
-        _queue.push_back(move(el));
+        _queue.push_back(std::move(el));
         _not_empty.notify_one();
     }
 
     template<typename T>
     bool blocking_fifo<T>::try_pop(T& out) {
-        unique_lock<mutex> lock(_mutex, defer_lock);
+        std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
         if(lock.try_lock() && !empty()) {
             out = move(_queue.front());
             _queue.pop_front();
@@ -106,17 +104,17 @@ namespace tcp_kit {
 
     template<typename T>
     T blocking_fifo<T>::pop() {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         while (empty()) {
             interruption_point();
 //            _not_empty.wait(lock);
             interruptible_wait(_not_empty, lock);
             interruption_point();
         }
-        T pop_out = move(_queue.front());
+        T pop_out = std::move(_queue.front());
         _queue.pop_front();
         _not_full.notify_one();
-        return move(pop_out);
+        return std::move(pop_out);
     }
 
     template<typename T>
@@ -141,7 +139,7 @@ namespace tcp_kit {
     bool blocking_fifo<T>::poll(T& out) {
         if(empty()) return false;
         else {
-            unique_lock<mutex> lock(_mutex);
+            std::unique_lock<std::mutex> lock(_mutex);
             out = move(_queue.front());
             _queue.pop_front();
             _not_full.notify_one();
@@ -152,16 +150,15 @@ namespace tcp_kit {
     template<typename T>
     template<typename Duration>
     bool blocking_fifo<T>::poll(T& out, Duration duration) {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         if(empty()) {
             interruption_point();
-//            _not_empty.wait_for(lock, duration);
             interruptible_wait_for(_not_empty, lock, duration);
             interruption_point();
         }
         if(empty()) return false;
         else {
-            out = move(_queue.front());
+            out = std::move(_queue.front());
             _queue.pop_front();
             _not_full.notify_one();
             return true;
@@ -170,7 +167,7 @@ namespace tcp_kit {
 
     template<typename T>
     bool blocking_fifo<T>::remove(const T& el) {
-        unique_lock<mutex> lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         auto it = std::find(_queue.begin(), _queue.end(), el);
         if (it != _queue.end()) {
             _queue.erase(it);
@@ -181,9 +178,9 @@ namespace tcp_kit {
     }
 
     template<>
-    inline bool blocking_fifo<function<void()>>::remove(const function<void()>& el) { // ???
-        unique_lock<mutex> lock(_mutex);
-        auto it = find_if(_queue.begin(), _queue.end(), [&el](const function<void()>& task) {
+    inline bool blocking_fifo<std::function<void()>>::remove(const std::function<void()>& el) { // ???
+        std::unique_lock<std::mutex> lock(_mutex);
+        auto it = find_if(_queue.begin(), _queue.end(), [&el](const std::function<void()>& task) {
             return el.target_type() == task.target_type() && el.target<void()>() == task.target<void()>();
         });
         if (it != _queue.end()) {

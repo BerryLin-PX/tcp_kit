@@ -15,14 +15,14 @@ namespace tcp_kit {
             _state(-1),
             _exclusive_owner_thread(nullptr),
             _first_task(first_task),
-            thread(make_shared<interruptible_thread>()) {
+            thread(std::make_shared<interruptible_thread>()) {
 
     }
 
     bool thread_pool::worker::try_lock() {
         bool locked = _mutex.try_lock();
         if(locked) {
-            set_exclusive_owner_thread(this_thread::get_id());
+            set_exclusive_owner_thread(std::this_thread::get_id());
             _state = 1;
         }
         return locked;
@@ -30,7 +30,7 @@ namespace tcp_kit {
 
     void thread_pool::worker::lock() {
         _mutex.lock();
-        set_exclusive_owner_thread(this_thread::get_id());
+        set_exclusive_owner_thread(std::this_thread::get_id());
         _state = 1;
     }
 
@@ -53,9 +53,9 @@ namespace tcp_kit {
         _exclusive_owner_thread = nullptr;
     }
 
-    void thread_pool::worker::set_exclusive_owner_thread(thread::id thread_id) {
+    void thread_pool::worker::set_exclusive_owner_thread(std::thread::id thread_id) {
         delete _exclusive_owner_thread;
-        _exclusive_owner_thread = new thread::id(thread_id);
+        _exclusive_owner_thread = new std::thread::id(thread_id);
     }
 
     thread_pool::worker::~worker() {
@@ -67,7 +67,7 @@ namespace tcp_kit {
     thread_pool::thread_pool(uint32_t core_pool_size,
                              uint32_t max_pool_size,
                              uint64_t keepalive_time,
-                             unique_ptr<blocking_fifo<runnable>> work_fifo)
+                             std::unique_ptr<blocking_fifo<runnable>> work_fifo)
                              : _core_pool_size((core_pool_size > 0 && core_pool_size <= CAPACITY) ? core_pool_size : 1),
                                _max_pool_size((max_pool_size > 0 && max_pool_size >= core_pool_size && max_pool_size <= CAPACITY) ? max_pool_size : _core_pool_size),
                                _keepalive_time(keepalive_time), _work_fifo(move(work_fifo)), _ctl(RUNNING | 0) {
@@ -99,7 +99,7 @@ namespace tcp_kit {
     }
 
     void thread_pool::execute(runnable first_task) {
-        if(!first_task) throw invalid_argument("Null Pointer Exception");
+        if(!first_task) throw std::invalid_argument("Null Pointer Exception");
         int32_t c = _ctl.load();
         if(worker_count_of(c) < _core_pool_size) {
             if(add_worker(first_task, true))
@@ -117,14 +117,14 @@ namespace tcp_kit {
     }
 
     void thread_pool::await_termination() {
-        unique_lock<recursive_mutex> main_lock(_mutex);
+        std::unique_lock<std::recursive_mutex> main_lock(_mutex);
         if(run_state_less_than(_ctl.load(), TERMINATED))
             interruptible_wait(_termination, main_lock);
     }
 
     void thread_pool::shutdown() {
         {
-            lock_guard<recursive_mutex> main_lock(_mutex);
+            std::lock_guard<std::recursive_mutex> main_lock(_mutex);
             check_shutdown_access();
             advance_run_state(SHUTDOWN);
             interrupt_idle_workers();
@@ -167,19 +167,19 @@ namespace tcp_kit {
         retry_end:
         bool work_started = false;
         bool work_added   = false;
-        shared_ptr<worker> w;
+        std::shared_ptr<worker> w;
         try {
-            w = make_shared<worker>(this, first_task);
+            w = std::make_shared<worker>(this, first_task);
             //log_debug("New worker thread added");
-            shared_ptr<interruptible_thread> t = w->thread;
+            std::shared_ptr<interruptible_thread> t = w->thread;
             if(t) {
                 t->set_runnable([this, w]{ run_worker(w); });
                 {
-                    lock_guard<recursive_mutex> main_lock(_mutex);
+                    std::lock_guard<std::recursive_mutex> main_lock(_mutex);
                     int32_t rs = run_state_of(_ctl.load());
                     if(rs < SHUTDOWN || (rs == SHUTDOWN && !first_task)) {
                         if(t->get_state() != interruptible_thread::state::NEW)
-                            throw runtime_error("Illegal Thread State Exception");
+                            throw std::runtime_error("Illegal Thread State Exception");
                         _workers.insert(w);
                         auto s = _workers.size();
                         if(s > _largest_pool_size)
@@ -199,8 +199,8 @@ namespace tcp_kit {
         return work_started;
     }
 
-    void thread_pool::run_worker(const shared_ptr<worker>& w) {
-        shared_ptr<interruptible_thread> wt = w->thread;
+    void thread_pool::run_worker(const std::shared_ptr<worker>& w) {
+        std::shared_ptr<interruptible_thread> wt = w->thread;
         runnable task = w->_first_task;
         w->_first_task = nullptr;
         w->unlock();
@@ -220,7 +220,7 @@ namespace tcp_kit {
                         task();
                         after_execute(wt, nullptr);
                     } catch (...) {
-                        after_execute(wt, current_exception());
+                        after_execute(wt, std::current_exception());
                     }
                 } catch (...) {
                     task = nullptr;
@@ -240,8 +240,8 @@ namespace tcp_kit {
         process_worker_exit(w, completed_abruptly);
     }
 
-    void thread_pool::before_execute(shared_ptr<interruptible_thread> &t, runnable r) { }
-    void thread_pool::after_execute(shared_ptr<interruptible_thread> &t, const exception_ptr &exp) { }
+    void thread_pool::before_execute(std::shared_ptr<interruptible_thread> &t, runnable r) { }
+    void thread_pool::after_execute(std::shared_ptr<interruptible_thread> &t, const std::exception_ptr &exp) { }
     void thread_pool::terminated() { }
     void thread_pool::on_shutdown() { }
 
@@ -265,7 +265,7 @@ namespace tcp_kit {
             try {
                 runnable r;
                 if(timed) {
-                    _work_fifo->poll(r, chrono::nanoseconds(_keepalive_time));
+                    _work_fifo->poll(r, std::chrono::nanoseconds(_keepalive_time));
                 } else {
                     r = _work_fifo->pop();
                 }
@@ -282,9 +282,9 @@ namespace tcp_kit {
     }
 
     void thread_pool::interrupt_idle_workers(bool only_one) {
-        lock_guard<recursive_mutex> main_lock(_mutex);
-        for(const shared_ptr<worker>& w : _workers) {
-            shared_ptr<interruptible_thread> thread = w->thread;
+        std::lock_guard<std::recursive_mutex> main_lock(_mutex);
+        for(const std::shared_ptr<worker>& w : _workers) {
+            std::shared_ptr<interruptible_thread> thread = w->thread;
             if(!thread->flag->is_set() && w->try_lock()) {
                 try {
                     thread->flag->set();
@@ -296,8 +296,8 @@ namespace tcp_kit {
         }
     }
 
-    void thread_pool::add_worker_failed(const shared_ptr<worker>& w) {
-        lock_guard<recursive_mutex> main_lock(_mutex);
+    void thread_pool::add_worker_failed(const std::shared_ptr<worker>& w) {
+        std::lock_guard<std::recursive_mutex> main_lock(_mutex);
         if(w) {
             _workers.erase(w);
             decrement_worker_count();
@@ -305,11 +305,11 @@ namespace tcp_kit {
         }
     }
 
-    void thread_pool::process_worker_exit(const shared_ptr<worker>& w, bool completed_abruptly) {
+    void thread_pool::process_worker_exit(const std::shared_ptr<worker>& w, bool completed_abruptly) {
         //log_debug("On worker thread exit");
         if(completed_abruptly)
             decrement_worker_count();
-        lock_guard<recursive_mutex> main_lock(_mutex);
+        std::lock_guard<std::recursive_mutex> main_lock(_mutex);
         _completed_task_count += w->completed_tasks;
         _workers.erase(w);
         try_terminate();
@@ -361,7 +361,7 @@ namespace tcp_kit {
                 interrupt_idle_workers(ONLY_ONE);
                 return;
             }
-            lock_guard<recursive_mutex> main_lock(_mutex);
+            std::lock_guard<std::recursive_mutex> main_lock(_mutex);
             if(_ctl.compare_exchange_weak(c, ctl_of(TIDYING, 0))) {
                 try {
                     terminated();
