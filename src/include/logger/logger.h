@@ -1,5 +1,4 @@
-#ifndef _TCP_KIT_LOGGER_
-#define _TCP_KIT_LOGGER_
+#pragma once
 
 #include <stdarg.h>
 #include <string>
@@ -17,5 +16,3 @@ enum levels { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define log_fatal(...) log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
 void log(uint8_t level, const char* file, uint32_t line, const char* fmt, ...);
-
-#endif

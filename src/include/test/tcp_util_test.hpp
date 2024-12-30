@@ -280,6 +280,89 @@ namespace tcp_kit {
             event_base_free(ev_base);
         }
 
+        static enum bufferevent_filter_result
+        uppercase_in_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, bufferevent_flush_mode mode, void *ctx) {
+            log_info("When UPPERCASE filter working");
+            size_t len;
+            char buf[4096];
+
+            while ((len = evbuffer_remove(src, buf, sizeof(buf))) > 0) {
+                for (size_t i = 0; i < len; ++i) {
+                    buf[i] = toupper((unsigned char)buf[i]);
+                }
+                evbuffer_add(dst, buf, len);
+            }
+
+            return BEV_OK;
+        }
+
+        static enum bufferevent_filter_result
+        underscore_out_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, bufferevent_flush_mode mode, void *ctx) {
+            log_info("When u_n_d_e_r_s_c_o_r_e filter working");
+            size_t len;
+            char buf[4096];
+            char out_buf[8192];
+
+            while ((len = evbuffer_remove(src, buf, sizeof(buf))) > 0) {
+                size_t out_len = 0;
+                for (size_t i = 0; i < len; ++i) {
+                    out_buf[out_len++] = buf[i];
+                    if (i < len - 1) {
+                        out_buf[out_len++] = '_';
+                    }
+                }
+                evbuffer_add(dst, out_buf, out_len);
+            }
+
+            return BEV_OK;
+        }
+
+        void t6_read_callback(struct bufferevent *bev, void *ctx) {
+            log_info("When read callback");
+            struct evbuffer *input = bufferevent_get_input(bev);
+            struct evbuffer *output = bufferevent_get_output(bev);
+
+            size_t len = evbuffer_get_length(input);
+            char *data = (char *)malloc(len + 1);
+            if (!data) {
+                std::cerr << "Memory allocation error" << std::endl;
+                return;
+            }
+
+            evbuffer_remove(input, data, len);
+            data[len] = '\0';
+
+            std::string response = "response:";
+            response += data;
+            evbuffer_add(output, response.c_str(), response.size());
+
+            free(data);
+        }
+
+        void t6_write_callback(struct bufferevent *bev, void *ctx) {
+            log_info("When write callback");
+        }
+
+        void t6_accept_callback(struct evconnlistener *listener, socket_t fd, struct sockaddr *address, int socklen, void *arg) {
+            struct event_base *ev_base = (struct event_base *)arg;
+            struct bufferevent *bev = bufferevent_socket_new(ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+            struct bufferevent *filtered_bev = bufferevent_filter_new(
+                    bev, uppercase_in_filter, underscore_out_filter, BEV_OPT_CLOSE_ON_FREE, nullptr, nullptr);
+            bufferevent_setcb(filtered_bev, t6_read_callback, t6_write_callback, nullptr, nullptr);
+            bufferevent_enable(filtered_bev, EV_READ | EV_WRITE);
+        }
+
+        void t6() {
+            auto address = socket_address(3000);
+            auto *ev_base = event_base_new();
+            auto *ev_listener = evconnlistener_new_bind(ev_base,t6_accept_callback,ev_base,
+                                                        LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, 10,
+                                                        (struct sockaddr *)&address,sizeof(sockaddr_in));
+            event_base_dispatch(ev_base);
+            evconnlistener_free(ev_listener);
+            event_base_free(ev_base);
+        }
+
     }
 
 }

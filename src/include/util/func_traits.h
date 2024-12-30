@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_FUNC_TRAITS_H
-#define TCP_KIT_FUNC_TRAITS_H
+#pragma once
 
 #include <tuple>
 #include <functional>
@@ -62,5 +61,3 @@ namespace tcp_kit {
     }
 
 }
-
-#endif

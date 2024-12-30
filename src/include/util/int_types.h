@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_INT_TYPES_H
-#define TCP_KIT_INT_TYPES_H
+#pragma once
 
 #include <cstdint>
 
@@ -15,5 +14,3 @@ namespace tcp_kit {
     using s64 = int64_t;
 
 }
-
-#endif

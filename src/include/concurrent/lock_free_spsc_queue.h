@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_LOCK_FREE_SPSC_QUEUE_H
-#define TCP_KIT_LOCK_FREE_SPSC_QUEUE_H
+#pragma once
 
 #include <memory>
 #include <atomic>
@@ -66,5 +65,3 @@ namespace tcp_kit {
     };
 
 }
-
-#endif

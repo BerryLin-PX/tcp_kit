@@ -15,9 +15,7 @@ namespace tcp_kit {
             _state(-1),
             _exclusive_owner_thread(nullptr),
             _first_task(first_task),
-            thread(std::make_shared<interruptible_thread>()) {
-
-    }
+            thread(std::make_shared<interruptible_thread>()) { }
 
     bool thread_pool::worker::try_lock() {
         bool locked = _mutex.try_lock();

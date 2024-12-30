@@ -1,7 +1,6 @@
 #include <logger/logger.h>
 #include <network/server.h>
 #include "include/network/generic.h"
-#include "concurrent/lock_free_fifo.hpp"
 #include <tuple>
 #include <type_traits>
 #include <util/func_traits.h>
@@ -178,16 +177,7 @@ namespace tcp_kit {
         }
 
         void t11() {
-            struct a_struct {
-                int a = 1;
-                int b = 2;
-            };
-            lock_free_fifo<a_struct> fifo(3);
-            a_struct as;
-            fifo.push_by_shallow_copy(&as);
-            a_struct as_out;
-            fifo.pop(&as_out);
-            log_info("a: %d, b: %d", as_out.a, as_out.b);
+
         }
 
         void t12() {

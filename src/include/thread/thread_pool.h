@@ -1,6 +1,4 @@
-// 参考自 Java JDK-11 中 ThreadPoolExecutor 实现
-#ifndef TCP_KIT_THREAD_POOL_H
-#define TCP_KIT_THREAD_POOL_H
+#pragma once
 
 #include <stdint.h>
 #include <chrono>
@@ -11,7 +9,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <functional>
-#include <concurrent/blocking_fifo.hpp>
+#include <concurrent/blocking_fifo.h>
 #include <thread/interruptible_thread.h>
 
 #define COUNT_BITS 29
@@ -134,5 +132,3 @@ namespace tcp_kit {
     }
 
 }
-
-#endif

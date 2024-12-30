@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <chrono>
-#include "concurrent/blocking_fifo.hpp"
+#include "concurrent/blocking_fifo.h"
 
 using namespace tcp_kit;
 

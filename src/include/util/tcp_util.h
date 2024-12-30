@@ -1,6 +1,5 @@
 // non-blocking
-#ifndef _TCP_SERVER_TCP_UTIL_
-#define _TCP_SERVER_TCP_UTIL_
+#pragma once
 
 #include <stdint.h>
 #include <event2/util.h>
@@ -23,5 +22,3 @@ namespace tcp_kit {
     int close_socket(socket_t socket_fd);
 
 }
-
-#endif

@@ -1,4 +1,4 @@
-#include "include/network/generic.h"
+#include <network/generic.h>
 #include <error/errors.h>
 #include <network/server.h>
 
@@ -11,7 +11,14 @@ namespace tcp_kit {
     }
 
     void generic::handler::run() {
+        while(_server_base->is_running()) {
+            msg_context* ctx = pop();
+        }
+    }
 
+    msg_context* generic::handler::pop() {
+        std::unique_ptr<msg_context*> ptr_ptr = msg_queue->pop();
+        return *(ptr_ptr.get());
     }
 
 

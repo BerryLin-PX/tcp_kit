@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_BLOCKING_QUEUE_H
-#define TCP_KIT_BLOCKING_QUEUE_H
+#pragma once
 
 #include <stdint.h>
 #include <queue>
@@ -192,5 +191,3 @@ namespace tcp_kit {
     }
 
 }
-
-#endif

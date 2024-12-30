@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_TYPES_H
-#define TCP_KIT_TYPES_H
+#pragma once
 
 template <typename...>
 using void_t = void;
@@ -27,5 +26,3 @@ template <typename Target, typename Replacement>
 struct replace_type<type_list<>, Target, Replacement> {
     using type = type_list<>;
 };
-
-#endif

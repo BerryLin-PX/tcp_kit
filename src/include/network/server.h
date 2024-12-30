@@ -1,7 +1,9 @@
-#ifndef TCP_KIT_SERVER_H
-#define TCP_KIT_SERVER_H
+#pragma once
 
 #include <cstdlib>
+#include <network/filter_chain.h>
+#include <network/ev_context.h>
+#include <network/msg_context.h>
 #include <util/int_types.h>
 #include <logger/logger.h>
 #include <thread/thread_pool.h>
@@ -10,12 +12,13 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
-#include <network/filter_chain.h>
+#include <event2/thread.h>
 #include <concurrent/lock_free_queue.h>
 #include <concurrent/lock_free_spsc_queue.h>
 
 #define EV_HANDLER_CAPACITY      0x3fff
 #define HANDLER_CAPACITY         0x3fff
+#define RUN_STATE_CAPACITY       0xf
 
 #define EV_HANDLER_EXCEPT_SCALE  0.3f
 
@@ -44,6 +47,8 @@ namespace tcp_kit {
     public:
         server_base(filter_chain filters_);
 
+        bool is_running();
+
         virtual ~server_base() = default;
 
     protected:
@@ -68,6 +73,7 @@ namespace tcp_kit {
         void wait_at_least(uint32_t rs);
         uint32_t handlers_map();
         uint32_t ctl_of(uint32_t rs, uint32_t hp);
+        uint32_t run_state_of(uint32_t rs);
         bool run_state_at_least(uint32_t rs);
 
     };
@@ -78,7 +84,10 @@ namespace tcp_kit {
     class ev_handler_base {
 
     public:
+        size_t n_handler;
         std::vector<handler_base*> handlers;
+
+        ev_handler_base();
 
         void bind_and_run(server_base* server_ptr);
         // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应在此处进行初始化
@@ -92,9 +101,9 @@ namespace tcp_kit {
         server_base*    _server_base;
         filter_chain*   _filters;
 
-        void call_conn_filters(event_context* ctx);
-        void register_read_write_filters(event_context* ctx);
-        std::unique_ptr<evbuffer_holder> call_process_filters(event_context* ctx);
+        void call_conn_filters(ev_context* ctx);
+        void register_read_write_filters(ev_context* ctx);
+        // std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
 
     };
 
@@ -106,13 +115,14 @@ namespace tcp_kit {
         virtual void run() = 0;
         virtual ~handler_base();
 
-        using msg = int;
+        using msg = msg_context*;
         bool race;
         std::unique_ptr<queue<msg>> msg_queue;
 
     protected:
-
-        server_base* _server;
+        filter_chain* _filters;
+        server_base*  _server_base;
+        std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
 
     };
 
@@ -225,6 +235,7 @@ namespace tcp_kit {
     // 30-37
     template <typename Protocols, uint16_t PORT>
     void server<Protocols, PORT>::start() {
+        //evthread_use_pthreads();
         uint16_t n_ev_handler = n_of_ev_handler();
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;
@@ -238,6 +249,7 @@ namespace tcp_kit {
                 for(uint16_t j = 0; j < n_share; ++j) {
                     uint16_t ev_handler_i = handler_i * n_share + j;
                     _ev_handlers[ev_handler_i].handlers.push_back(&_handlers[handler_i]);
+                    _ev_handlers[ev_handler_i].n_handler = 1;
                     _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[ev_handler_i], this);
                 }
                 _handlers[handler_i].race = true;
@@ -252,6 +264,7 @@ namespace tcp_kit {
                     _ev_handlers[ev_handler_i].handlers.push_back(&_handlers[handler_i]);
                     _threads->execute(&handler_t::bind_and_run, &_handlers[handler_i], this);
                 }
+                _ev_handlers[ev_handler_i].n_handler = n_own;
                 _threads->execute(&ev_handler_t::bind_and_run, &_ev_handlers[ev_handler_i], this);
             }
         }
@@ -320,5 +333,3 @@ namespace tcp_kit {
     }
 
 }
-
-#endif

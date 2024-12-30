@@ -2,11 +2,14 @@ cmake_minimum_required(VERSION 2.8)
 project(tcp_kit)
 
 add_definitions(-DNDEBUG)
+add_definitions(-levent -levent_pthreads)
+
 
 set(CMAKE_CXX_STANDARD 11)
 
 set(LIBEVENT_INCLUDE_DIR /usr/local/opt/libevent/include)
 set(LIBEVENT_LIBRARIES /usr/local/opt/libevent/lib/libevent.a)
+#                       /usr/local/opt/libevent/lib/libevent_pthreads.a)
 set(LIBEVENT_OPEN_SSL_LIBRARIES /usr/local/opt/libevent/lib/libevent_openssl.a)
 
 set(GTEST_LIB /usr/local/opt/googletest)

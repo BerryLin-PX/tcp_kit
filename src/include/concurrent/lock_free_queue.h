@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_LOCK_FREE_QUEUE_H
-#define TCP_KIT_LOCK_FREE_QUEUE_H
+#pragma once
 
 #include <atomic>
 #include <memory>
@@ -153,6 +152,3 @@ namespace tcp_kit {
     };
 
 }
-
-
-#endif

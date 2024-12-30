@@ -1,11 +1,10 @@
-#ifndef TCP_KIT_SSL_H
-#define TCP_KIT_SSL_H
+#pragma once
 
 #include <event2/bufferevent_ssl.h>
 #include <openssl/ssl.h>
 #include <openssl/rand.h>
 #include <pthread.h>
-#include <network/event_context.h>
+#include <network/ev_context.h>
 
 namespace tcp_kit {
 
@@ -36,7 +35,7 @@ namespace tcp_kit {
         };
 
         struct openssl_filter {
-            static void connect(event_context* ctx);
+            static void connect(ev_context* ctx);
         };
 
 
@@ -45,4 +44,3 @@ namespace tcp_kit {
 }
 
 
-#endif

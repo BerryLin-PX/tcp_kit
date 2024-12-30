@@ -30,11 +30,21 @@ namespace tcp_kit {
         return rs | hp;
     }
 
+    inline uint32_t server_base::run_state_of(uint32_t rs) {
+        return _ctl & (RUN_STATE_CAPACITY << STATE_OFFSET);
+    }
+
+    bool server_base::is_running() {
+        return RUNNING == run_state_of(_ctl);
+    }
+
     inline bool server_base::run_state_at_least(uint32_t rs) {
         return _ctl.load(std::memory_order_acquire) >= rs;
     }
 
     // -----------------------------------------------------------------------------------------------------------------
+
+    ev_handler_base::ev_handler_base(): n_handler(0) { }
 
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
@@ -47,7 +57,7 @@ namespace tcp_kit {
         run();
     }
 
-    void ev_handler_base::call_conn_filters(event_context* ctx) {
+    void ev_handler_base::call_conn_filters(ev_context* ctx) {
         try {
             _filters->connects(ctx);
         } catch (...) {
@@ -59,7 +69,7 @@ namespace tcp_kit {
         return a > b ? a : b;
     }
 
-    void ev_handler_base::register_read_write_filters(event_context* ctx) {
+    void ev_handler_base::register_read_write_filters(ev_context* ctx) {
         auto& reads = _filters->reads;
         auto& writes = _filters->writes;
         for(size_t i = 0; i < max(reads.size(), writes.size()); ++i) {
@@ -76,23 +86,29 @@ namespace tcp_kit {
     }
 
 
-    std::unique_ptr<evbuffer_holder> ev_handler_base::call_process_filters(event_context *ctx) {
-        auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
-        return _filters->process(ctx, move(holder));
-    }
+    // std::unique_ptr<evbuffer_holder> ev_handler_base::call_process_filters(ev_context *ctx) {
+    //     auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
+    //     return _filters->process(ctx, move(holder));
+    // }
 
     // -----------------------------------------------------------------------------------------------------------------
 
     void handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
-        _server = server_ptr;
+        _server_base = server_ptr;
+        _filters = &_server_base->_filters;
         msg_queue = std::move(race ? std::unique_ptr<queue<msg>>(new lock_free_queue<msg>())
                                    : std::unique_ptr<queue< msg>>(new lock_free_spsc_queue<msg>()));
         init(server_ptr);
-        _server->try_ready();
-        _server->wait_at_least(server_base::RUNNING);
+        _server_base->try_ready();
+        _server_base->wait_at_least(server_base::RUNNING);
         //log_debug("Handler running...");
         run();
+    }
+
+    std::unique_ptr<evbuffer_holder> handler_base::call_process_filters(ev_context *ctx) {
+        auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
+        return _filters->process(ctx, move(holder));
     }
 
     handler_base::~handler_base() {

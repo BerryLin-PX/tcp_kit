@@ -1,6 +1,4 @@
-// 参考自《C++并发编程实战-第二版》第 9 章 interruptible_thread 实现
-#ifndef TCP_KIT_INTERRUPTIBLE_THREAD_H
-#define TCP_KIT_INTERRUPTIBLE_THREAD_H
+#pragma once
 
 #include <memory>
 #include <thread>
@@ -111,4 +109,3 @@ namespace tcp_kit {
     }
 
 }
-#endif

@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_ERRORS_H
-#define TCP_KIT_ERRORS_H
+#pragma once
 
 #include <stdexcept>
 
@@ -26,5 +25,3 @@ namespace tcp_kit {
 
 
 }
-
-#endif

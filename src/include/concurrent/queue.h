@@ -1,5 +1,4 @@
-#ifndef TCP_KIT_QUEUE_H
-#define TCP_KIT_QUEUE_H
+#pragma once
 
 #include <memory>
 
@@ -18,5 +17,3 @@ namespace tcp_kit {
     };
 
 }
-
-#endif
