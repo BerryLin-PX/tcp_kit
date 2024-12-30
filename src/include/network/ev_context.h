@@ -6,6 +6,9 @@
 
 namespace tcp_kit {
 
+    class ev_handler_base;
+    class handler_base;
+
     struct ev_context {
         static const uint8_t CONNECTED  = 0; // 连接建立
         static const uint8_t READY      = 1; // 准备就绪
