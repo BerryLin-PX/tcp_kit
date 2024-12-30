@@ -1,14 +1,13 @@
 #pragma once
 
 #include <event2/bufferevent.h>
-#include <network/ev_context.h>
-#include <network/filter_chain.h>
 #include <util/func_traits.h>
 #include <util/types.h>
 #include <memory>
 #include <vector>
 #include <array>
 #include <type_traits>
+#include <network/ev_context.h>
 
 // 通过 filter 介入 tcp 连接的整个生命周期.
 // 过滤器链按照顺序依次调度, 在任何一个钩子函数中抛出异常都会打断拦截链, 使连接以错误断开.
@@ -290,10 +289,10 @@ namespace tcp_kit {
     template<typename... F>
     filter_chain filter_chain::make(type_list<F...>) {
         filter_chain chain;
-         chain.connects = make_connect_chain(typename valid_connect_filters<F...>::types{});
-         chain.reads = make_reads(typename valid_read_filters<F...>::types{});
-         chain.writes = make_reads(typename valid_write_filters<F...>::types{});
-         chain.process = make_process_chain(typename valid_process_filters<F...>::types{});
+        chain.connects = make_connect_chain(typename valid_connect_filters<F...>::types{});
+        chain.reads = make_reads(typename valid_read_filters<F...>::types{});
+        chain.writes = make_reads(typename valid_write_filters<F...>::types{});
+        chain.process = make_process_chain(typename valid_process_filters<F...>::types{});
         return chain;
     }
 

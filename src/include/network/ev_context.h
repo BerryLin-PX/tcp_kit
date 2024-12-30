@@ -1,5 +1,4 @@
 #pragma once
-
 #include <event2/bufferevent.h>
 #include <util/tcp_util.h>
 #include <network/server.h>
@@ -31,6 +30,11 @@ namespace tcp_kit {
 
         ev_context(const control &ctl_, int fd_, sockaddr *address_, int socklen_, ev_handler_base *ev_handler_,
                    handler_base *handler_, bufferevent *bev_);
+
+        ev_context(const ev_context&) = delete;
+        ev_context(ev_context&&) = delete;
+        ev_context& operator=(const ev_context&) = delete;
+        ev_context& operator=(ev_context&&) = delete;
 
     };
 
