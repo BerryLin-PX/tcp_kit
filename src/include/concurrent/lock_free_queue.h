@@ -4,6 +4,7 @@
 #include <memory>
 #include <concurrent/queue.h>
 #include <logger/logger.h>
+#include <stdint.h>
 
 namespace tcp_kit {
 
@@ -12,31 +13,32 @@ namespace tcp_kit {
     private:
         struct node;
         struct counted_node_ptr {
-            int external_count;
-            node* ptr;
+            int     external_count;
+            node*   ptr;
+            uint8_t padding[sizeof(void*) - sizeof(int)];
         };
 
         std::atomic<counted_node_ptr> head;
         std::atomic<counted_node_ptr> tail;
 
         struct node_counter {
-            unsigned internal_count : 30;
+            unsigned internal_count    : 30;
             unsigned external_counters : 2;
         };
 
         struct node {
-            std::atomic<T*> data;
-            std::atomic<node_counter> count;
-            counted_node_ptr next;
+            std::atomic<T*>               data;
+            std::atomic<node_counter>     count;
+            std::atomic<counted_node_ptr> next;
 
             node() {
+                data = nullptr;
                 node_counter new_count;
                 new_count.internal_count = 0;
                 new_count.external_counters = 2;
-                data = nullptr;
                 count.store(new_count);
-                next.ptr = nullptr;
-                next.external_count = 0;
+                counted_node_ptr new_next {0, nullptr, {0}};
+                next.store(new_next);
             }
 
             void release_ref() {
@@ -96,9 +98,7 @@ namespace tcp_kit {
 
     public:
         lock_free_queue() {
-            counted_node_ptr dummy;
-            dummy.ptr = new node;
-            dummy.external_count = 1;
+            counted_node_ptr dummy {1, new node, {0}};
             head = dummy;
             tail = dummy;
         }
@@ -113,13 +113,22 @@ namespace tcp_kit {
                 increase_external_count(tail, old_tail);
                 T* old_data = nullptr;
                 if (old_tail.ptr->data.compare_exchange_strong(old_data, new_data.get())) {
-                    old_tail.ptr->next = new_next;
-                    old_tail = tail.exchange(new_next);
-                    free_external_counter(old_tail);
+                    counted_node_ptr old_next = {0, nullptr, {0}};
+                    if (!old_tail.ptr->next.compare_exchange_strong(old_next, new_next)) {
+                        delete new_next.ptr;
+                        new_next = old_next;
+                    }
+                    set_new_tail(old_tail, new_next);
                     new_data.release();
                     break;
+                } else {
+                    counted_node_ptr old_next = {0, nullptr, {0}};
+                    if (old_tail.ptr->next.compare_exchange_strong(old_next, new_next)) {
+                        old_next = new_next;
+                        new_next.ptr = new node;
+                    }
+                    set_new_tail(old_tail, old_next);
                 }
-                old_tail.ptr->release_ref();
             }
         }
 
@@ -132,7 +141,8 @@ namespace tcp_kit {
                     ptr->release_ref();
                     return std::unique_ptr<T>();
                 }
-                if (head.compare_exchange_strong(old_head, ptr->next)) {
+                counted_node_ptr next = ptr->next.load();
+                if (head.compare_exchange_strong(old_head, next)) {
                     T* const res = ptr->data.exchange(nullptr);
                     free_external_counter(old_head);
                     return std::unique_ptr<T>(res);
