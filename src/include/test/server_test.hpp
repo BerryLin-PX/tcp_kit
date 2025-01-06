@@ -1,6 +1,6 @@
 #include <logger/logger.h>
 #include <network/server.h>
-#include "include/network/generic.h"
+#include <network/generic.h>
 #include <tuple>
 #include <type_traits>
 #include <util/func_traits.h>
@@ -176,8 +176,11 @@ namespace tcp_kit {
             a.t3_inner();
         }
 
-        void t11() {
+        class a_class {};
 
+        void t11() {
+            using types = replace_type<type_list<api_dispatcher_p>, api_dispatcher_p, a_class>::type;
+            types{};
         }
 
         void t12() {
@@ -187,7 +190,8 @@ namespace tcp_kit {
         }
 
         void t13() {
-            server<generic> svr;
+            server<generic, 3000> svr;
+            svr.start();
         }
 
     }

@@ -33,6 +33,9 @@ namespace tcp_kit {
 
     class ev_handler_base;
     class handler_base;
+    class filter_chain;
+    class ev_context;
+    class evbuffer_holder;
 
     // 该类制定了 server 的状态控制行为
     //
@@ -45,7 +48,7 @@ namespace tcp_kit {
     class server_base {
 
     public:
-        server_base(filter_chain filters_);
+        server_base(std::shared_ptr<filter_chain> filters_);
 
         bool is_running();
 
@@ -63,10 +66,10 @@ namespace tcp_kit {
         static constexpr uint32_t TERMINATED = 5 << STATE_OFFSET;
 
         // [4][14][14]: run_state | n_of_ev_handler | n_of_handler
-        std::atomic<uint32_t>       _ctl;
-        std::mutex                  _mutex;
-        std::condition_variable_any _state;
-        filter_chain                _filters;
+        std::atomic<uint32_t>         _ctl;
+        std::mutex                    _mutex;
+        std::condition_variable_any   _state;
+        std::shared_ptr<filter_chain> _filters;
 
         virtual void try_ready() = 0;
         void trans_to(uint32_t rs);
@@ -90,19 +93,19 @@ namespace tcp_kit {
         ev_handler_base();
 
         void bind_and_run(server_base* server_ptr);
-        // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类应在此处进行初始化
+        // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类在此处进行初始化
         virtual void init(server_base* server_ptr) = 0;
-        // 在 server 进入 RUNNING 状态后被调度, 派生类应在此处做任务处理
+        // 在 server 进入 RUNNING 状态后被调度, 派生类在此处做任务处理
         virtual void run() = 0;
 
         virtual ~ev_handler_base() = default;
 
     protected:
-        server_base*    _server_base;
-        filter_chain*   _filters;
+        server_base* _server_base;
+        std::shared_ptr<filter_chain> _filters;
 
-        void call_conn_filters(ev_context* ctx);
-        void register_read_write_filters(ev_context* ctx);
+        void call_conn_filters(struct ev_context* ctx);
+        void register_read_write_filters(struct ev_context* ctx);
         // std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
 
     };
@@ -120,9 +123,10 @@ namespace tcp_kit {
         std::unique_ptr<queue<msg>> msg_queue;
 
     protected:
-        filter_chain* _filters;
-        server_base*  _server_base;
-        std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
+        server_base* _server_base;
+        std::shared_ptr<filter_chain> _filters;
+
+        std::unique_ptr<evbuffer_holder> call_process_filters(struct ev_context* ctx);
 
     };
 
@@ -133,7 +137,7 @@ namespace tcp_kit {
     // Protocols 必须满足以下条件:
     //   1: Protocols 有子类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
     //   2: Protocols 有子类 handler 且派生于 handler 类, 无参构造函数
-    //   3: Protocols 如若有默认的过滤器集, 声明 filters 类型, 如: using filters = type_list<filter1, filter2, filter3...>;
+    //   3: Protocols 如若有默认的过滤器集, 声明 filter_types 类型, 如: using filter_types = type_list<filter1, filter2, filter3...>;
     //   4: Protocols 有子类 api_dispatcher<uint16_t PORT>, 无参构造函数, 且具备以下条件:
     //      ----------------------------------------------------------------------------------------------------------
     //      1. api 函数(static 修饰)
@@ -146,7 +150,7 @@ namespace tcp_kit {
     //      ----------------------------------------------------------------------------------------------------------
     //      2. 过滤器
     //      如有需要注册过滤器, 在此类中实现 filter 的 process 函数
-    //      使用 api_dispatcher_p 代替实际类型, 如: using filters = type_list<filter1, api_dispatcher_p>
+    //      使用 api_dispatcher_p 代替实际类型, 如: using filter_types = type_list<filter1, api_dispatcher_p>
     //
     // 线程的分配:
     //   ev_handler -> 处理连接事件线程(一般是读、写)
@@ -174,7 +178,7 @@ namespace tcp_kit {
         using ev_handler_t     = typename Protocols::template ev_handler<PORT>;
         using handler_t        = typename Protocols::handler;
         using api_dispatcher_t = typename Protocols::template api_dispatcher<PORT>;
-        using filters          = typename replace_type<typename Protocols::filters, api_dispatcher_p, api_dispatcher_t>::type;
+        using filter_types     = typename replace_type<typename Protocols::filters, api_dispatcher_p, api_dispatcher_t>::type;
 
         static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "Protocols::ev_handler must be derived from ev_handler_base.");
         static_assert(std::is_base_of<handler_base, handler_t>::value , "Protocols::handler must be derived from handler_base.");
@@ -212,7 +216,7 @@ namespace tcp_kit {
     };
 
     template <typename Protocols, uint16_t PORT>
-    server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler) : server_base(filter_chain::make(filters{})) {
+    server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler): server_base(make_filter_chain(filter_types{})) {
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
             throw std::invalid_argument("Illegal Parameter.");
         _ctl |= NEW;

@@ -86,7 +86,7 @@ namespace tcp_kit {
             interruptible_wait(_not_full, lock);
             interruption_point();
         }
-        _queue.push_back(std::move(el));
+        _queue.push_back(std::forward<T>(el));
         _not_empty.notify_one();
     }
 
@@ -113,7 +113,7 @@ namespace tcp_kit {
         T pop_out = std::move(_queue.front());
         _queue.pop_front();
         _not_full.notify_one();
-        return std::move(pop_out);
+        return pop_out;
     }
 
     template<typename T>

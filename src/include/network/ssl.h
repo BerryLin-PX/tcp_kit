@@ -38,7 +38,6 @@ namespace tcp_kit {
             static void connect(ev_context* ctx);
         };
 
-
     }
 
 }

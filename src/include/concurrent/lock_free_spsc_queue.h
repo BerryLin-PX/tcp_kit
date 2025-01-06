@@ -3,6 +3,7 @@
 #include <memory>
 #include <atomic>
 #include <concurrent/queue.h>
+#include <thread/interruptible_thread.h>
 
 namespace tcp_kit {
 
@@ -18,6 +19,8 @@ namespace tcp_kit {
 
         std::atomic<node*> _head;
         std::atomic<node*> _tail;
+        std::mutex         _mutex;
+        std::condition_variable_any _not_empty;
 
         node* pop_head() {
             node* const old_head = _head.load();
@@ -43,10 +46,20 @@ namespace tcp_kit {
             }
         }
 
+        inline bool empty() {
+            return _head.load() == _tail.load();
+        }
+
         std::unique_ptr<T> pop() override {
             node* popped = pop_head();
             if(!popped) {
-                return std::unique_ptr<T>();
+                {
+                    std::unique_lock<std::mutex> lock(_mutex);
+                    interruption_point();
+                    interruptible_wait(_not_empty, lock);
+                }
+                interruption_point();
+                popped = pop_head();
             }
             std::unique_ptr<T> res(move(popped->data));
             delete popped;
@@ -54,12 +67,17 @@ namespace tcp_kit {
         }
 
         void push(T new_value) override {
+            bool empty_ = empty();
             std::unique_ptr<T> new_data(std::make_unique<T>(new_value));
             node* p = new node;
             node* const old_tail = _tail.load();
             old_tail->data.swap(new_data);
             old_tail->next = p;
             _tail.store(p);
+            if(empty_) {
+                std::unique_lock<std::mutex> lock(_mutex);
+                _not_empty.notify_one();
+            }
         }
 
     };

@@ -19,6 +19,6 @@
 
 
 int main() {
-    tcp_kit::server_test::t12();
+    tcp_kit::lock_free_queue_test::t1();
     return 0;
 }

@@ -5,7 +5,7 @@
 
 namespace tcp_kit {
 
-    server_base::server_base(filter_chain filters_): _ctl(NEW), _filters(filters_) { }
+    server_base::server_base(std::shared_ptr<filter_chain> filters_): _ctl(NEW), _filters(filters_) { }
 
     void server_base::trans_to(uint32_t rs) {
         std::unique_lock<std::mutex> lock(_mutex);
@@ -49,7 +49,7 @@ namespace tcp_kit {
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server_base = server_ptr;
-        _filters = &_server_base->_filters;
+        _filters = _server_base->_filters;
         init(server_ptr);
         _server_base->try_ready();
         _server_base->wait_at_least(server_base::RUNNING);
@@ -96,7 +96,7 @@ namespace tcp_kit {
     void handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server_base = server_ptr;
-        _filters = &_server_base->_filters;
+        _filters = _server_base->_filters;
         msg_queue = std::move(race ? std::unique_ptr<queue<msg>>(new lock_free_queue<msg>())
                                    : std::unique_ptr<queue< msg>>(new lock_free_spsc_queue<msg>()));
         init(server_ptr);

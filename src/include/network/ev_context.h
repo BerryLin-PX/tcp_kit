@@ -1,8 +1,9 @@
 #pragma once
+
 #include <event2/bufferevent.h>
+#include <event2/event.h>
 #include <util/tcp_util.h>
 #include <network/server.h>
-#include <event2/event.h>
 
 namespace tcp_kit {
 

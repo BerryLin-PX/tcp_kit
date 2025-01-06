@@ -11,9 +11,9 @@ namespace tcp_kit {
     }
 
     void generic::handler::run() {
-        while(_server_base->is_running()) {
-            msg_context* ctx = pop();
-        }
+        // while(_server_base->is_running()) {
+        //     msg_context* ctx = pop();
+        // }
     }
 
     msg_context* generic::handler::pop() {

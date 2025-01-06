@@ -2,6 +2,8 @@
 
 namespace tcp_kit {
 
+    evbuffer_holder::evbuffer_holder(evbuffer* buffer_): buffer(buffer_) { }
+
     void empty_connect_chain(ev_context* ctx) {
 
     }
