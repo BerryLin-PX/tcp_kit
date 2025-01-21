@@ -126,7 +126,7 @@ namespace tcp_kit {
         server_base* _server_base;
         std::shared_ptr<filter_chain> _filters;
 
-        std::unique_ptr<evbuffer_holder> call_process_filters(struct ev_context* ctx);
+//        std::unique_ptr<evbuffer_holder> call_process_filters(struct msg_context* ctx);
 
     };
 

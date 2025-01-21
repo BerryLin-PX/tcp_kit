@@ -18,7 +18,6 @@ namespace tcp_kit {
 
     // 作为 server 的通用协议实现
     class generic {
-
     public:
 
         using filters = type_list<api_dispatcher_p>;

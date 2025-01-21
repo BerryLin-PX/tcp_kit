@@ -2,7 +2,6 @@
 #include <error/errors.h>
 #include <network/server.h>
 
-#define SUCCESSFUL 0 // libevent API 表示成功的值
 
 namespace tcp_kit {
 
@@ -11,9 +10,12 @@ namespace tcp_kit {
     }
 
     void generic::handler::run() {
-        // while(_server_base->is_running()) {
-        //     msg_context* ctx = pop();
-        // }
+         while(_server_base->is_running()) {
+             msg_context* ctx = pop();
+             auto res = _filters->process(ctx, std::make_unique<evbuffer_holder>(ctx->in));
+             evbuffer_add_buffer(res->buffer, ctx->out);
+             ctx->done();
+         }
     }
 
     msg_context* generic::handler::pop() {

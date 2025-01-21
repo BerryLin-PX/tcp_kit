@@ -8,7 +8,7 @@ namespace tcp_kit {
 
     }
 
-    std::unique_ptr<evbuffer_holder> empty_process_chain(ev_context* ctx, std::unique_ptr<evbuffer_holder> in) {
+    std::unique_ptr<evbuffer_holder> empty_process_chain(msg_context* ctx, std::unique_ptr<evbuffer_holder> in) {
         return in;
     }
 

@@ -7,6 +7,7 @@
 #include <test/server_test.hpp>
 #include <test/tcp_util_test.hpp>
 #include <test/lock_free_queue_test.hpp>
+#include <test/lock_free_queue_nb_test.hpp>
 #include <util/func_traits.h>
 #include <network/filter_chain.h>
 
@@ -19,6 +20,9 @@
 
 
 int main() {
-    tcp_kit::lock_free_queue_test::t1();
+    for(int i =0; i < 1000; i++) {
+        tcp_kit::lock_free_queue_test::t1();
+    }
+//    tcp_kit::server_test::t12();
     return 0;
 }

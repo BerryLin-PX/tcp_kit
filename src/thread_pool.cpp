@@ -1,4 +1,3 @@
-// 参考自 Java JDK-11 中 java.util.concurrent.ThreadPoolExecutor 实现
 #include <thread/thread_pool.h>
 #include <stdexcept>
 #include <memory>

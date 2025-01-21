@@ -28,7 +28,7 @@ namespace tcp_kit {
     //   @ctx: 事件上下文
     using connect_filter = void (*)(struct ev_context* ctx);
 
-    using process_chain  = std::unique_ptr<evbuffer_holder>(*)(struct ev_context* ctx, std::unique_ptr<evbuffer_holder>);
+    using process_chain  = std::unique_ptr<evbuffer_holder>(*)(struct msg_context* ctx, std::unique_ptr<evbuffer_holder>);
 
     class filter_chain {
 
@@ -256,22 +256,22 @@ namespace tcp_kit {
     // 将 Process Filters 调用链展开, A, B, C  -> return C::process(ctx, B::process(ctx, A::process(ctx, move(input))));
     template<typename First, typename... Others>
     struct process_chain_caller {
-        static decltype(auto) call(struct ev_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
+        static decltype(auto) call(struct msg_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
             return process_chain_caller<Others...>::call(ctx, First::process(ctx, move(input)));
         }
     };
 
     template<typename Last>
     struct process_chain_caller<Last> {
-        static decltype(auto) call(struct ev_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
+        static decltype(auto) call(struct msg_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
             return Last::process(ctx, move(input));
         }
     };
 
-    std::unique_ptr<evbuffer_holder> empty_process_chain(struct ev_context* ctx, std::unique_ptr<evbuffer_holder> in);
+    std::unique_ptr<evbuffer_holder> empty_process_chain(struct msg_context* ctx, std::unique_ptr<evbuffer_holder> in);
 
     template<typename... F>
-    std::unique_ptr<evbuffer_holder> catchable_process_chain(struct ev_context* ctx, std::unique_ptr<evbuffer_holder> input) {
+    std::unique_ptr<evbuffer_holder> catchable_process_chain(struct msg_context* ctx, std::unique_ptr<evbuffer_holder> input) {
         try {
             return process_chain_caller<F...>::call(ctx, move(input));
         } catch (...) {

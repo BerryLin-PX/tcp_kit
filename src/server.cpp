@@ -106,10 +106,10 @@ namespace tcp_kit {
         run();
     }
 
-    std::unique_ptr<evbuffer_holder> handler_base::call_process_filters(ev_context *ctx) {
-        auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
-        return _filters->process(ctx, move(holder));
-    }
+//    std::unique_ptr<evbuffer_holder> handler_base::call_process_filters(ev_context *ctx) {
+//        auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));
+//        return _filters->process(ctx, move(holder));
+//    }
 
     handler_base::~handler_base() {
 
