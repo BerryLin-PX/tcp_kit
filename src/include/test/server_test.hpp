@@ -206,29 +206,6 @@ namespace tcp_kit {
             svr.start();
         }
 
-//        class some_class {};
-//        class A {
-//        public:
-//            static unique_ptr<some_class> process(msg_context*, unique_ptr<msg_buffer>) {
-//                log_info("A");
-//                return make_unique<some_class>();
-//            };
-//        };
-//        class B {
-//        public:
-//            static unique_ptr<msg_buffer> process(msg_context*, unique_ptr<some_class>) {
-//                log_info("B");
-//                return make_unique<msg_buffer>(1);
-//            };
-//        };
-//
-//        void t15() {
-//            auto filters = make_filter_chain(type_list<A, B>{});
-//            auto process = make_process_chain(type_list<A, B>{});
-//            process(nullptr, make_unique<msg_buffer>(1));
-////            log_info("%d", tuple_size<tuple<valid_process_filters<A, B>::types>>::value);
-//        }
-
     }
 
 }

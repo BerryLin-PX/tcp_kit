@@ -1,4 +1,3 @@
-#include <gtest/gtest.h>
 #include <test/blocking_queue_test.hpp>
 #include <test/interruptible_thread_test.hpp>
 #include <test/thread_pool_test.hpp>
@@ -20,6 +19,12 @@
 
 
 int main() {
-    tcp_kit::server_test::t14();
+    //tcp_kit::server_test::t14();
+    using namespace tcp_kit;
+    server<json> svr;
+    svr.api("echo", [](std::string msg) {
+        return msg;
+    });
+    svr.start();
     return 0;
 }

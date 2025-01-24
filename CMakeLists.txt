@@ -4,7 +4,6 @@ project(tcp_kit)
 add_definitions(-DNDEBUG)
 add_definitions(-levent -levent_pthreads)
 
-
 set(CMAKE_CXX_STANDARD 11)
 
 set(LIBEVENT_INCLUDE_DIR /usr/local/opt/libevent/include)
