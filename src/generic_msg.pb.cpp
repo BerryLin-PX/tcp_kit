@@ -21,18 +21,18 @@ namespace _pb = ::PROTOBUF_NAMESPACE_ID;
 namespace _pbi = _pb::internal;
 
 namespace tcp_kit {
-PROTOBUF_CONSTEXPR Param::Param(
+PROTOBUF_CONSTEXPR BasicType::BasicType(
     ::_pbi::ConstantInitialized)
   : _oneof_case_{}{}
-struct ParamDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR ParamDefaultTypeInternal()
+struct BasicTypeDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR BasicTypeDefaultTypeInternal()
       : _instance(::_pbi::ConstantInitialized{}) {}
-  ~ParamDefaultTypeInternal() {}
+  ~BasicTypeDefaultTypeInternal() {}
   union {
-    Param _instance;
+    BasicType _instance;
   };
 };
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ParamDefaultTypeInternal _Param_default_instance_;
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 BasicTypeDefaultTypeInternal _BasicType_default_instance_;
 PROTOBUF_CONSTEXPR GenericMsg::GenericMsg(
     ::_pbi::ConstantInitialized)
   : params_()
@@ -54,9 +54,9 @@ static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors
 
 const uint32_t TableStruct_generic_5fmsg_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::tcp_kit::Param, _internal_metadata_),
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::BasicType, _internal_metadata_),
   ~0u,  // no _extensions_
-  PROTOBUF_FIELD_OFFSET(::tcp_kit::Param, _oneof_case_[0]),
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::BasicType, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
   ~0u,  // no _inlined_string_donated_
   ::_pbi::kInvalidFieldOffsetTag,
@@ -67,7 +67,7 @@ const uint32_t TableStruct_generic_5fmsg_2eproto::offsets[] PROTOBUF_SECTION_VAR
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
-  PROTOBUF_FIELD_OFFSET(::tcp_kit::Param, value_),
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::BasicType, value_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericMsg, _has_bits_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericMsg, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -82,31 +82,31 @@ const uint32_t TableStruct_generic_5fmsg_2eproto::offsets[] PROTOBUF_SECTION_VAR
   0,
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, -1, -1, sizeof(::tcp_kit::Param)},
+  { 0, -1, -1, sizeof(::tcp_kit::BasicType)},
   { 15, 24, -1, sizeof(::tcp_kit::GenericMsg)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
-  &::tcp_kit::_Param_default_instance_._instance,
+  &::tcp_kit::_BasicType_default_instance_._instance,
   &::tcp_kit::_GenericMsg_default_instance_._instance,
 };
 
 const char descriptor_table_protodef_generic_5fmsg_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\021generic_msg.proto\022\007tcp_kit\032\031google/pro"
-  "tobuf/any.proto\"\202\001\n\005Param\022\r\n\003u32\030\001 \001(\rH\000"
-  "\022\r\n\003s32\030\002 \001(\005H\000\022\r\n\003u64\030\003 \001(\004H\000\022\r\n\003s64\030\004 "
-  "\001(\003H\000\022\013\n\001f\030\005 \001(\002H\000\022\013\n\001d\030\006 \001(\001H\000\022\013\n\001b\030\007 \001"
-  "(\010H\000\022\r\n\003str\030\010 \001(\tH\000B\007\n\005value\"k\n\nGenericM"
-  "sg\022\013\n\003api\030\001 \001(\t\022\036\n\006params\030\002 \003(\0132\016.tcp_ki"
-  "t.Param\022\'\n\004body\030\003 \001(\0132\024.google.protobuf."
-  "AnyH\000\210\001\001B\007\n\005_bodyb\006proto3"
+  "tobuf/any.proto\"\206\001\n\tBasicType\022\r\n\003u32\030\001 \001"
+  "(\rH\000\022\r\n\003s32\030\002 \001(\005H\000\022\r\n\003u64\030\003 \001(\004H\000\022\r\n\003s6"
+  "4\030\004 \001(\003H\000\022\013\n\001f\030\005 \001(\002H\000\022\013\n\001d\030\006 \001(\001H\000\022\013\n\001b"
+  "\030\007 \001(\010H\000\022\r\n\003str\030\010 \001(\tH\000B\007\n\005value\"o\n\nGene"
+  "ricMsg\022\013\n\003api\030\001 \001(\t\022\"\n\006params\030\002 \003(\0132\022.tc"
+  "p_kit.BasicType\022\'\n\004body\030\003 \001(\0132\024.google.p"
+  "rotobuf.AnyH\000\210\001\001B\007\n\005_bodyb\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_generic_5fmsg_2eproto_deps[1] = {
   &::descriptor_table_google_2fprotobuf_2fany_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_generic_5fmsg_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_generic_5fmsg_2eproto = {
-    false, false, 305, descriptor_table_protodef_generic_5fmsg_2eproto,
+    false, false, 313, descriptor_table_protodef_generic_5fmsg_2eproto,
     "generic_msg.proto",
     &descriptor_table_generic_5fmsg_2eproto_once, descriptor_table_generic_5fmsg_2eproto_deps, 1, 2,
     schemas, file_default_instances, TableStruct_generic_5fmsg_2eproto::offsets,
@@ -123,17 +123,17 @@ namespace tcp_kit {
 
 // ===================================================================
 
-class Param::_Internal {
+class BasicType::_Internal {
  public:
 };
 
-Param::Param(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+BasicType::BasicType(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                          bool is_message_owned)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  // @@protoc_insertion_point(arena_constructor:tcp_kit.Param)
+  // @@protoc_insertion_point(arena_constructor:tcp_kit.BasicType)
 }
-Param::Param(const Param& from)
+BasicType::BasicType(const BasicType& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   clear_has_value();
@@ -174,15 +174,15 @@ Param::Param(const Param& from)
       break;
     }
   }
-  // @@protoc_insertion_point(copy_constructor:tcp_kit.Param)
+  // @@protoc_insertion_point(copy_constructor:tcp_kit.BasicType)
 }
 
-inline void Param::SharedCtor() {
+inline void BasicType::SharedCtor() {
 clear_has_value();
 }
 
-Param::~Param() {
-  // @@protoc_insertion_point(destructor:tcp_kit.Param)
+BasicType::~BasicType() {
+  // @@protoc_insertion_point(destructor:tcp_kit.BasicType)
   if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
   (void)arena;
     return;
@@ -190,19 +190,19 @@ Param::~Param() {
   SharedDtor();
 }
 
-inline void Param::SharedDtor() {
+inline void BasicType::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (has_value()) {
     clear_value();
   }
 }
 
-void Param::SetCachedSize(int size) const {
+void BasicType::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
 
-void Param::clear_value() {
-// @@protoc_insertion_point(one_of_clear_start:tcp_kit.Param)
+void BasicType::clear_value() {
+// @@protoc_insertion_point(one_of_clear_start:tcp_kit.BasicType)
   switch (value_case()) {
     case kU32: {
       // No need to clear
@@ -244,8 +244,8 @@ void Param::clear_value() {
 }
 
 
-void Param::Clear() {
-// @@protoc_insertion_point(message_clear_start:tcp_kit.Param)
+void BasicType::Clear() {
+// @@protoc_insertion_point(message_clear_start:tcp_kit.BasicType)
   uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
@@ -254,7 +254,7 @@ void Param::Clear() {
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-const char* Param::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+const char* BasicType::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
     uint32_t tag;
@@ -322,7 +322,7 @@ const char* Param::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
           auto str = _internal_mutable_str();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "tcp_kit.Param.str"));
+          CHK_(::_pbi::VerifyUTF8(str, "tcp_kit.BasicType.str"));
         } else
           goto handle_unusual;
         continue;
@@ -349,9 +349,9 @@ failure:
 #undef CHK_
 }
 
-uint8_t* Param::_InternalSerialize(
+uint8_t* BasicType::_InternalSerialize(
     uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:tcp_kit.Param)
+  // @@protoc_insertion_point(serialize_to_array_start:tcp_kit.BasicType)
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
@@ -402,7 +402,7 @@ uint8_t* Param::_InternalSerialize(
     ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
       this->_internal_str().data(), static_cast<int>(this->_internal_str().length()),
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "tcp_kit.Param.str");
+      "tcp_kit.BasicType.str");
     target = stream->WriteStringMaybeAliased(
         8, this->_internal_str(), target);
   }
@@ -411,12 +411,12 @@ uint8_t* Param::_InternalSerialize(
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:tcp_kit.Param)
+  // @@protoc_insertion_point(serialize_to_array_end:tcp_kit.BasicType)
   return target;
 }
 
-size_t Param::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:tcp_kit.Param)
+size_t BasicType::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:tcp_kit.BasicType)
   size_t total_size = 0;
 
   uint32_t cached_has_bits = 0;
@@ -473,21 +473,21 @@ size_t Param::ByteSizeLong() const {
   return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-const ::PROTOBUF_NAMESPACE_ID::Message::ClassData Param::_class_data_ = {
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData BasicType::_class_data_ = {
     ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
-    Param::MergeImpl
+    BasicType::MergeImpl
 };
-const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*Param::GetClassData() const { return &_class_data_; }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*BasicType::GetClassData() const { return &_class_data_; }
 
-void Param::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+void BasicType::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
                       const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-  static_cast<Param *>(to)->MergeFrom(
-      static_cast<const Param &>(from));
+  static_cast<BasicType *>(to)->MergeFrom(
+      static_cast<const BasicType &>(from));
 }
 
 
-void Param::MergeFrom(const Param& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:tcp_kit.Param)
+void BasicType::MergeFrom(const BasicType& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:tcp_kit.BasicType)
   GOOGLE_DCHECK_NE(&from, this);
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
@@ -532,25 +532,25 @@ void Param::MergeFrom(const Param& from) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
-void Param::CopyFrom(const Param& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:tcp_kit.Param)
+void BasicType::CopyFrom(const BasicType& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:tcp_kit.BasicType)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool Param::IsInitialized() const {
+bool BasicType::IsInitialized() const {
   return true;
 }
 
-void Param::InternalSwap(Param* other) {
+void BasicType::InternalSwap(BasicType* other) {
   using std::swap;
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(value_, other->value_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }
 
-::PROTOBUF_NAMESPACE_ID::Metadata Param::GetMetadata() const {
+::PROTOBUF_NAMESPACE_ID::Metadata BasicType::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_generic_5fmsg_2eproto_getter, &descriptor_table_generic_5fmsg_2eproto_once,
       file_level_metadata_generic_5fmsg_2eproto[0]);
@@ -664,7 +664,7 @@ const char* GenericMsg::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // repeated .tcp_kit.Param params = 2;
+      // repeated .tcp_kit.BasicType params = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr -= 1;
@@ -677,7 +677,7 @@ const char* GenericMsg::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // optional .google.protobuf.any body = 3;
+      // optional .google.protobuf.Any body = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_body(), ptr);
@@ -725,7 +725,7 @@ uint8_t* GenericMsg::_InternalSerialize(
         1, this->_internal_api(), target);
   }
 
-  // repeated .tcp_kit.Param params = 2;
+  // repeated .tcp_kit.BasicType params = 2;
   for (unsigned i = 0,
       n = static_cast<unsigned>(this->_internal_params_size()); i < n; i++) {
     const auto& repfield = this->_internal_params(i);
@@ -733,7 +733,7 @@ uint8_t* GenericMsg::_InternalSerialize(
         InternalWriteMessage(2, repfield, repfield.GetCachedSize(), target, stream);
   }
 
-  // optional .google.protobuf.any body = 3;
+  // optional .google.protobuf.Any body = 3;
   if (_internal_has_body()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(3, _Internal::body(this),
@@ -756,7 +756,7 @@ size_t GenericMsg::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // repeated .tcp_kit.Param params = 2;
+  // repeated .tcp_kit.BasicType params = 2;
   total_size += 1UL * this->_internal_params_size();
   for (const auto& msg : this->params_) {
     total_size +=
@@ -770,7 +770,7 @@ size_t GenericMsg::ByteSizeLong() const {
         this->_internal_api());
   }
 
-  // optional .google.protobuf.any body = 3;
+  // optional .google.protobuf.Any body = 3;
   cached_has_bits = _has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     total_size += 1 +
@@ -844,9 +844,9 @@ void GenericMsg::InternalSwap(GenericMsg* other) {
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace tcp_kit
 PROTOBUF_NAMESPACE_OPEN
-template<> PROTOBUF_NOINLINE ::tcp_kit::Param*
-Arena::CreateMaybeMessage< ::tcp_kit::Param >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::tcp_kit::Param >(arena);
+template<> PROTOBUF_NOINLINE ::tcp_kit::BasicType*
+Arena::CreateMaybeMessage< ::tcp_kit::BasicType >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::tcp_kit::BasicType >(arena);
 }
 template<> PROTOBUF_NOINLINE ::tcp_kit::GenericMsg*
 Arena::CreateMaybeMessage< ::tcp_kit::GenericMsg >(Arena* arena) {

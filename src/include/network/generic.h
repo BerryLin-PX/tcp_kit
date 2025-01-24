@@ -11,6 +11,7 @@
 #include <network/generic_msg.pb.h>
 #include <network/generic_reply.pb.h>
 #include <network/msg_context.h>
+#include <stdlib.h>
 
 #define SUCCESSFUL 0 // libevent API 表示成功的值
 
@@ -34,7 +35,7 @@ namespace tcp_kit {
             static void event_callback(bufferevent *bev, short what, void *arg);
             static void process_callback(evutil_socket_t, short, void * arg);
 
-            static msg_context* msg_context_new(event_base* base, ev_context* ctx);
+            static msg_context* msg_context_new(ev_context* ctx, char* msg_line, const size_t in_len);
 
             static void when_error(ev_context* ctx);
             static bool try_close(ev_context* ctx);
@@ -68,7 +69,7 @@ namespace tcp_kit {
         template<uint16_t PORT>
         class api_dispatcher {
         public:
-            static std::unique_ptr<GenericReply> process(const ev_context* ctx, std::unique_ptr<GenericMsg> msg);
+            static std::unique_ptr<GenericReply> process(msg_context* ctx, std::unique_ptr<GenericMsg> msg);
 
             template<typename Processor>
             static void api(const std::string& id, Processor prcs);
@@ -95,15 +96,15 @@ namespace tcp_kit {
             bufferevent_free(bev);
             return;
         }
-        ev_context* ctx = new ev_context({0, ev_context::CONNECTED, 0}, fd, address, socklen,
-                                         ev_handler_, ev_handler_->next(), bev);
+        ev_context* ctx = new ev_context{{0, ev_context::CONNECTED, 0}, fd, address,
+                                         socklen, ev_handler_, ev_handler_->next(), bev};
         try {
             ev_handler_->call_conn_filters(ctx);
             ev_handler_->register_read_write_filters(ctx);
             ctx->ctl.state = ev_context::READY;
             if(bufferevent_enable(ctx->bev, EV_READ | EV_WRITE) == SUCCESSFUL) {
                 bufferevent_setcb(ctx->bev, read_callback, write_callback, event_callback, ctx);
-                ctx->ctl.state = ev_context::WORKING;
+                ctx->ctl.state = ev_context::ACTIVE;
             } else {
                 throw generic_error<CONS_BEV_FAILED>("Failed to enable the events of bufferevent");
             }
@@ -119,10 +120,15 @@ namespace tcp_kit {
         ev_context* ctx = static_cast<ev_context*>(arg);
         msg_context* msg_ctx;
         try {
-            if(ctx->ctl.state == ev_context::WORKING) {
-                generic::ev_handler<PORT>* ev_handler_ = static_cast<generic::ev_handler<PORT>*>(ctx->ev_handler);
-                msg_ctx = msg_context_new(ev_handler_->_ev_base, ctx);
-                ctx->handler->msg_queue->push(msg_ctx);
+            if(ctx->ctl.state == ev_context::ACTIVE) {
+                evbuffer* input = bufferevent_get_input(ctx->bev);
+                size_t len = 0;
+                char* msg_line = evbuffer_readln(input, &len, EVBUFFER_EOL_CRLF);
+                log_debug("Get a message: %s", msg_line);
+                if(msg_line) {
+                    msg_ctx = msg_context_new(ctx, msg_line, len);
+                    ctx->handler->msg_queue->push(msg_ctx);
+                }
             } else {
                 try_free_ctx(ctx);
             }
@@ -152,22 +158,32 @@ namespace tcp_kit {
         msg_context* msg_ctx = pair->second;
         delete pair;
         --ctx->ctl.n_async;
-        if(ctx->ctl.state == ev_context::WORKING) {
-            evbuffer_add_buffer(bufferevent_get_output(ctx->bev), msg_ctx->out);
+        if(ctx->ctl.state == ev_context::ACTIVE) {
+            evbuffer_add_reference(bufferevent_get_output(ctx->bev), msg_ctx->out, msg_ctx->out_len,
+                                   [](const void *data, size_t len, void *arg) { free(static_cast<char*>(arg)); },
+                                   msg_ctx->out);
+            msg_ctx->out = nullptr;
+            free_msg_ctx(msg_ctx);
         } else {
             free_msg_ctx(msg_ctx);
             try_free_ctx(ctx);
         }
     }
 
-    template<uint16_t PORT>
-    msg_context* generic::ev_handler<PORT>::msg_context_new(event_base* base, ev_context* ctx) {
-        msg_context* msg_ctx = new msg_context{evbuffer_new(), evbuffer_new(), nullptr};
-        evbuffer_add_buffer(msg_ctx->in, bufferevent_get_input(ctx->bev));
-        event* done_ev = event_new(base, -1, 0, process_callback, new std::pair<ev_context*, msg_context*>(ctx, msg_ctx));
-        msg_ctx->done_ev = done_ev;
-        ++ctx->ctl.n_async;
-        return msg_ctx;
+    template <uint16_t PORT>
+    msg_context* generic::ev_handler<PORT>::msg_context_new(ev_context* ctx, char* msg_line, const size_t in_len) {
+        event_base* base = static_cast<ev_handler<PORT>*>(ctx->ev_handler)->_ev_base;
+        msg_context* msg_ctx = new msg_context{msg_line, in_len, nullptr, 0, nullptr, false, nullptr};
+        auto ctx_pair = new std::pair<ev_context*, msg_context*>(ctx, msg_ctx);
+        msg_ctx->done_ev = event_new(base, -1, 0, process_callback, ctx_pair);
+        if(msg_ctx->done_ev) {
+            ++ctx->ctl.n_async;
+            return msg_ctx;
+        } else {
+            delete ctx_pair;
+            free_msg_ctx(msg_ctx);
+            throw generic_error<CONS_EVENT_FAILED>("Failed to construct the done event");
+        }
     }
 
     template<uint16_t PORT>
@@ -208,15 +224,15 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::free_msg_ctx(msg_context* ctx) {
-        evbuffer_free(ctx->in);
-        evbuffer_free(ctx->out);
-        event_free(ctx->done_ev);
+        if(ctx->in)
+            free(ctx->in);
+        if(ctx->done_ev)
+            event_free(ctx->done_ev);
         delete ctx;
     }
 
     template<uint16_t PORT>
-    generic::ev_handler<PORT>::ev_handler() {
-        _ev_base = event_base_new();
+    generic::ev_handler<PORT>::ev_handler(): _ev_base(event_base_new()), _next(0) {
     }
 
     template<uint16_t PORT>
@@ -254,8 +270,9 @@ namespace tcp_kit {
     typename generic::api_dispatcher<PORT>::map_t generic::api_dispatcher<PORT>::_api_map;
 
     template<uint16_t PORT>
-    std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(const ev_context* ctx, std::unique_ptr<GenericMsg> msg) {
-        api_dispatcher<PORT>::_api_map.find(msg->api())->second(move(msg));
+    std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(msg_context* ctx, std::unique_ptr<GenericMsg> msg) {
+        log_debug("Api dispatcher");
+        return api_dispatcher<PORT>::_api_map.find(msg->api())->second(std::move(msg));
     }
 
     template<uint16_t PORT>
@@ -298,7 +315,7 @@ namespace tcp_kit {
 
     template<typename Tuple, size_t N>
     struct infer_offset {
-        static constexpr int32_t value = (match_basic_type<typename std::tuple_element<N, Tuple>>::type ? 1 : 0) +
+        static constexpr int32_t value = (match_basic_type<typename std::tuple_element<N, Tuple>::type>::value ? 1 : 0) +
                                          infer_offset<Tuple, N - 1>::value;
     };
 
@@ -324,7 +341,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, uint32_t>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_u32()) {
             return p.u32();
         } else {
@@ -334,7 +351,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, int32_t>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_s32()) {
             return p.s32();
         } else {
@@ -344,7 +361,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, uint64_t>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_u64()) {
             return p.u64();
         } else {
@@ -354,7 +371,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, int64_t>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_s64()) {
             return p.s64();
         } else {
@@ -364,7 +381,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, float>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_f()) {
             return p.f();
         } else {
@@ -374,7 +391,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, double>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_d()) {
             return p.d();
         } else {
@@ -384,7 +401,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, bool>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_b()) {
             return p.b();
         } else {
@@ -394,7 +411,7 @@ namespace tcp_kit {
 
     template<typename T, int32_t Offset>
     T unpack_to(std::unique_ptr<GenericMsg>& msg, typename std::enable_if<std::is_same<T, std::string>::value>::type* = nullptr) {
-        Param p = msg->params(Offset);
+        BasicType p = msg->params(Offset);
         if(p.has_str()) {
             return p.str();
         } else {
@@ -404,7 +421,8 @@ namespace tcp_kit {
 
     template<typename Tuple, size_t... I>
     Tuple unpack(index_seq<I...>, std::unique_ptr<GenericMsg>& msg) {
-        return {unpack_to<typename std::tuple_element<I, Tuple>::type, infer_offset<Tuple, I>::value>(msg)...};
+        Tuple res = {unpack_to<typename std::tuple_element<I, Tuple>::type, infer_offset<Tuple, I>::value>(msg)...};
+        return res;
     }
 
     template<uint16_t PORT>
@@ -416,13 +434,74 @@ namespace tcp_kit {
         return Tuple();
     }
 
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, google::protobuf::Message>::value>::type* = nullptr) {
+        reply->body().PackFrom(data);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, uint32_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_u32(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, int32_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_s32(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, uint64_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_u64(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, int64_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_s64(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, float_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_f(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, double_t>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_d(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, bool>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_b(data);
+        reply->set_allocated_result(result);
+    }
+
+    template<typename T>
+    void pack_from(std::unique_ptr<GenericReply>& reply, T& data, typename std::enable_if<std::is_same<T, std::string>::value>::type* = nullptr) {
+        GenericReply::BasicType* result = new GenericReply::BasicType;
+        result->set_str(data);
+        reply->set_allocated_result(result);
+    }
+
     template<uint16_t PORT>
     template<typename T>
     std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::serialize(T& data) {
         std::unique_ptr<GenericReply> reply = std::make_unique<GenericReply>();
         reply->set_code(GenericReply::SUCCESS);
-        // reply->body().PackFrom(data); // TODO
-        return move(reply);
+        pack_from(reply, data);
+        return reply;
     }
 
 }

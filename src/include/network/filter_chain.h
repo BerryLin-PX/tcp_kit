@@ -8,27 +8,43 @@
 #include <array>
 #include <type_traits>
 #include <network/ev_context.h>
+#include <logger/logger.h>
 
 // 通过 filter 介入 tcp 连接的整个生命周期.
 // 过滤器链按照顺序依次调度, 在任何一个钩子函数中抛出异常都会打断拦截链, 使连接以错误断开.
 namespace tcp_kit {
 
     struct ev_context;
+    struct msg_context;
 
     class evbuffer_holder {
-
     public:
         evbuffer* buffer;
         evbuffer_holder(evbuffer* buffer_);
 
     };
 
+    class msg_buffer {
+    public:
+        friend class handler_base;
+
+        char*  ptr;
+        size_t size;
+
+        msg_buffer(size_t size_);
+
+    private:
+        msg_buffer() = default;
+        msg_buffer(char* ptr_, size_t size_);
+
+    };
+
     // 连接建立后回调
     // 参数
     //   @ctx: 事件上下文
-    using connect_filter = void (*)(struct ev_context* ctx);
+    using connect_filter = void (*)(ev_context* ctx);
 
-    using process_chain  = std::unique_ptr<evbuffer_holder>(*)(struct msg_context* ctx, std::unique_ptr<evbuffer_holder>);
+    using process_chain  = std::unique_ptr<msg_buffer>(*)(msg_context* ctx, std::unique_ptr<msg_buffer>);
 
     class filter_chain {
 
@@ -61,21 +77,21 @@ namespace tcp_kit {
     struct check_connect : std::false_type {};
 
     template<typename T>
-    struct check_connect<T, void_t<decltype(T::connect)>> : std::is_same<decltype(T::connect), void(struct ev_context*)> {};
+    struct check_connect<T, void_t<decltype(T::connect)>> : std::is_same<decltype(T::connect), void(ev_context*)> {};
 
     // 检查 T 是否有静态函数 void read(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, ev_context*);
     template<typename T, typename = void>
     struct check_read_filter : std::false_type {};
 
     template<typename T>
-    struct check_read_filter<T, void_t<decltype(T::read)>> : std::is_same<decltype(T::read), bufferevent_filter_result(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, struct ev_context*)> {};
+    struct check_read_filter<T, void_t<decltype(T::read)>> : std::is_same<decltype(T::read), bufferevent_filter_result(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, ev_context*)> {};
 
     // 检查 T 是否有静态函数 void write(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, ev_context*);
     template<typename T, typename = void>
     struct check_write_filter : std::false_type {};
 
     template<typename T>
-    struct check_write_filter<T, void_t<decltype(T::write)>> : std::is_same<decltype(T::write), bufferevent_filter_result(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, struct ev_context*)> {};
+    struct check_write_filter<T, void_t<decltype(T::write)>> : std::is_same<decltype(T::write), bufferevent_filter_result(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, ev_context*)> {};
 
     // 检查某类型为 std::unique_ptr
     template<typename, typename = void>
@@ -109,7 +125,7 @@ namespace tcp_kit {
         using arg_t = typename std::tuple_element<1, typename process_traits<decltype(T::process)>::args_type>::type;
         static constexpr bool value = check_unique<result_t>::value &&
                                       check_unique<arg_t>::value &&
-                                      std::is_same<decltype(T::process), result_t(struct ev_context*, arg_t)>::value;
+                                      std::is_same<decltype(T::process), result_t(msg_context*, arg_t)>::value;
     };
 
 
@@ -136,8 +152,8 @@ namespace tcp_kit {
     struct valid_read_filters {
         using types = typename std::conditional<
                 check_read_filter<First>::value,
-                typename valid_connect_filters<Others...>::types::template prepend<First>,
-                typename valid_connect_filters<Others...>::types>::type;
+                typename valid_read_filters<Others...>::types::template prepend<First>,
+                typename valid_read_filters<Others...>::types>::type;
     };
 
     template <typename Last>
@@ -153,8 +169,8 @@ namespace tcp_kit {
     struct valid_write_filters {
         using types = typename std::conditional<
                 check_write_filter<First>::value,
-                typename valid_connect_filters<Others...>::types::template prepend<First>,
-                typename valid_connect_filters<Others...>::types>::type;
+                typename valid_write_filters<Others...>::types::template prepend<First>,
+                typename valid_write_filters<Others...>::types>::type;
     };
 
     template <typename Last>
@@ -170,8 +186,8 @@ namespace tcp_kit {
     struct valid_process_filters {
         using types = typename std::conditional<
                 check_process_filter<First>::value,
-                typename valid_connect_filters<Others...>::types::template prepend<First>,
-                typename valid_connect_filters<Others...>::types>::type;
+                typename valid_process_filters<Others...>::types::template prepend<First>,
+                typename valid_process_filters<Others...>::types>::type;
     };
 
     template <typename Last>
@@ -182,12 +198,12 @@ namespace tcp_kit {
                 type_list<>>;
     };
 
-    void empty_connect_chain(struct ev_context* ctx);
+    void empty_connect_chain(ev_context* ctx);
 
     template<typename First, typename... Others>
     struct connect_chain_caller {
 
-        static void call(struct ev_context* ctx) {
+        static void call(ev_context* ctx) {
             First::connect(ctx);
             connect_chain_caller<Others...>::call(ctx);
         }
@@ -197,7 +213,7 @@ namespace tcp_kit {
     template<typename Last>
     struct connect_chain_caller<Last> {
 
-        static void call(struct ev_context* ctx) {
+        static void call(ev_context* ctx) {
             Last::connect(ctx);
         }
 
@@ -207,7 +223,7 @@ namespace tcp_kit {
     bufferevent_filter_result catchable_read(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t dst_limit,
                                              enum bufferevent_flush_mode mode, void *ctx) {
         try {
-            return F::read(src, dst, dst_limit, mode, static_cast<struct ev_context*>(ctx));
+            return F::read(src, dst, dst_limit, mode, static_cast<ev_context*>(ctx));
         } catch (...) {
 
         }
@@ -217,7 +233,7 @@ namespace tcp_kit {
     bufferevent_filter_result catchable_write(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t dst_limit,
                                              enum bufferevent_flush_mode mode, void *ctx) {
         try {
-            return F::write(src, dst, dst_limit, mode, static_cast<struct ev_context*>(ctx));
+            return F::write(src, dst, dst_limit, mode, static_cast<ev_context*>(ctx));
         } catch (...) {
 
         }
@@ -256,28 +272,28 @@ namespace tcp_kit {
     // 将 Process Filters 调用链展开, A, B, C  -> return C::process(ctx, B::process(ctx, A::process(ctx, move(input))));
     template<typename First, typename... Others>
     struct process_chain_caller {
-        static decltype(auto) call(struct msg_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
+        static decltype(auto) call(msg_context* ctx, typename get_arg2_type<decltype(First::process)>::type input) {
             return process_chain_caller<Others...>::call(ctx, First::process(ctx, move(input)));
         }
     };
 
     template<typename Last>
     struct process_chain_caller<Last> {
-        static decltype(auto) call(struct msg_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
+        static decltype(auto) call(msg_context* ctx, typename get_arg2_type<decltype(Last::process)>::type input) {
             return Last::process(ctx, move(input));
         }
     };
 
-    std::unique_ptr<evbuffer_holder> empty_process_chain(struct msg_context* ctx, std::unique_ptr<evbuffer_holder> in);
+    std::unique_ptr<msg_buffer> empty_process_chain(msg_context* ctx, std::unique_ptr<msg_buffer> in);
 
-    template<typename... F>
-    std::unique_ptr<evbuffer_holder> catchable_process_chain(struct msg_context* ctx, std::unique_ptr<evbuffer_holder> input) {
-        try {
-            return process_chain_caller<F...>::call(ctx, move(input));
-        } catch (...) {
-
-        }
-    }
+//    template<typename... F>
+//    std::unique_ptr<msg_buffer> catchable_process_chain(msg_context* ctx, std::unique_ptr<msg_buffer> input) {
+//        try {
+//            return process_chain_caller<F...>::call(ctx, move(input));
+//        } catch (...) {
+//
+//        }
+//    }
 
     template<typename... F>
     process_chain make_process_chain(type_list<F...>, typename std::enable_if<(sizeof...(F) > 0), void>::type* = nullptr) {

@@ -12,8 +12,10 @@ namespace tcp_kit {
     void generic::handler::run() {
          while(_server_base->is_running()) {
              msg_context* ctx = pop();
-             auto res = _filters->process(ctx, std::make_unique<evbuffer_holder>(ctx->in));
-             evbuffer_add_buffer(res->buffer, ctx->out);
+             log_debug("Start to process the message");
+             auto res = _filters->process(ctx, make_msg_buffer(ctx->in, ctx->in_len));
+             ctx->out = res->ptr;
+             ctx->out_len = res->size;
              ctx->done();
          }
     }

@@ -36,6 +36,7 @@ namespace tcp_kit {
     class filter_chain;
     class ev_context;
     class evbuffer_holder;
+    class msg_buffer;
 
     // 该类制定了 server 的状态控制行为
     //
@@ -125,7 +126,7 @@ namespace tcp_kit {
     protected:
         server_base* _server_base;
         std::shared_ptr<filter_chain> _filters;
-
+        std::unique_ptr<msg_buffer> make_msg_buffer(char* line_msg, size_t len);
 //        std::unique_ptr<evbuffer_holder> call_process_filters(struct msg_context* ctx);
 
     };
@@ -239,7 +240,7 @@ namespace tcp_kit {
     // 30-37
     template <typename Protocols, uint16_t PORT>
     void server<Protocols, PORT>::start() {
-        //evthread_use_pthreads();
+        evthread_use_pthreads();
         uint16_t n_ev_handler = n_of_ev_handler();
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;

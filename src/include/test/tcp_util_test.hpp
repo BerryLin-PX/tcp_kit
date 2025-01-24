@@ -322,21 +322,22 @@ namespace tcp_kit {
             struct evbuffer *input = bufferevent_get_input(bev);
             struct evbuffer *output = bufferevent_get_output(bev);
 
-            size_t len = evbuffer_get_length(input);
-            char *data = (char *)malloc(len + 1);
-            if (!data) {
-                std::cerr << "Memory allocation error" << std::endl;
-                return;
+//            size_t len = evbuffer_get_length(input);
+//            char *data = (char *)malloc(len + 1);
+//            if (!data) {
+//                std::cerr << "Memory allocation error" << std::endl;
+//                return;
+//            }
+//
+//            evbuffer_remove(input, data, len);
+//            data[len] = '\0';
+            char* data = evbuffer_readln(input, nullptr, EVBUFFER_EOL_CRLF);
+            if(data) {
+                std::string response = "response:";
+                response += data;
+                evbuffer_add(output, response.c_str(), response.size());
+                free(data);
             }
-
-            evbuffer_remove(input, data, len);
-            data[len] = '\0';
-
-            std::string response = "response:";
-            response += data;
-            evbuffer_add(output, response.c_str(), response.size());
-
-            free(data);
         }
 
         void t6_write_callback(struct bufferevent *bev, void *ctx) {
@@ -363,7 +364,87 @@ namespace tcp_kit {
             event_base_free(ev_base);
         }
 
-    }
+        void t7_read_callback(struct bufferevent *bev, void *ctx) {
+            // 获取输入缓冲区
+            struct evbuffer *input = bufferevent_get_input(bev);
+            struct evbuffer *output = bufferevent_get_output(bev);
+
+            // 读取数据
+            size_t len = evbuffer_get_length(input);
+            char *data = new char[len + 1];
+            evbuffer_remove(input, data, len);
+            data[len] = '\0';
+
+            // 打印收到的消息
+            std::cout << "Received message: " << data << std::endl;
+
+            // 原封不动返回消息
+            evbuffer_add(output, data, len);
+
+            delete[] data;
+        }
+
+        void t7_event_callback(struct bufferevent *bev, short events, void *ctx) {
+            if (events & BEV_EVENT_EOF) {
+                std::cout << "Connection closed." << std::endl;
+            } else if (events & BEV_EVENT_ERROR) {
+                std::cerr << "Error occurred on the connection." << std::endl;
+            }
+            bufferevent_free(bev); // 释放资源
+        }
+
+        void t7_accept_callback(struct evconnlistener *listener, evutil_socket_t fd,
+                             struct sockaddr *addr, int socklen, void *ctx) {
+            std::cout << "Accepted a connection." << std::endl;
+
+            // 获取事件基础对象
+            struct event_base *base = (struct event_base *)ctx;
+
+            // 创建一个 bufferevent 以处理新连接
+            struct bufferevent *bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+
+            // 设置回调函数
+            bufferevent_setcb(bev, t7_read_callback, nullptr, t7_event_callback, nullptr);
+            bufferevent_enable(bev, EV_READ | EV_WRITE); // 启用读写事件
+        }
+
+        void t7() {
+            // 创建事件基础对象
+            struct event_base *base = event_base_new();
+            if (!base) {
+                std::cerr << "Could not initialize libevent!" << std::endl;
+                return;
+            }
+            // 创建监听地址
+            struct sockaddr_in sin;
+            memset(&sin, 0, sizeof(sin));
+            sin.sin_family = AF_INET;
+            sin.sin_addr.s_addr = htonl(INADDR_ANY);
+            sin.sin_port = htons(3000);
+
+            // 创建监听器
+            struct evconnlistener *listener = evconnlistener_new_bind(
+                    base, t7_accept_callback, base,
+                    LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1,
+                    (struct sockaddr *)&sin, sizeof(sin));
+
+            if (!listener) {
+                std::cerr << "Could not create a listener!" << std::endl;
+                event_base_free(base);
+                return;
+            }
+
+            std::cout << "Server is listening on port 3000..." << std::endl;
+
+            // 事件循环
+            event_base_dispatch(base);
+
+            // 清理资源
+            evconnlistener_free(listener);
+            event_base_free(base);
+        }
+
+    };
 
 }
 

@@ -4,6 +4,7 @@
 #include <tuple>
 #include <type_traits>
 #include <util/func_traits.h>
+#include <network/json.h>
 
 namespace tcp_kit {
 
@@ -179,20 +180,54 @@ namespace tcp_kit {
         class a_class {};
 
         void t11() {
-            using types = replace_type<type_list<api_dispatcher_p>, api_dispatcher_p, a_class>::type;
-            types{};
+//            using types = replace_type<type_list<api_dispatcher_p>, api_dispatcher_p, a_class>::type;
+//            types{};
         }
 
         void t12() {
-            server<generic> svr;
-            svr.api("echo", [](string msg){ return msg; });
-            svr.start();
+//            server<generic> svr;
+//            svr.api("echo", [](string msg){ return msg; });
+//            svr.start();
         }
 
         void t13() {
-            server<generic, 3000> svr;
+//            server<generic, 3000> svr;
+//            svr.start();
+        }
+
+        void t14() {
+            server<json> svr;
+            svr.api("plus", [](int32_t a, int32_t b) {
+                return a + b;
+            });
+            svr.api("echo", [](std::string msg) {
+                return msg;
+            });
             svr.start();
         }
+
+//        class some_class {};
+//        class A {
+//        public:
+//            static unique_ptr<some_class> process(msg_context*, unique_ptr<msg_buffer>) {
+//                log_info("A");
+//                return make_unique<some_class>();
+//            };
+//        };
+//        class B {
+//        public:
+//            static unique_ptr<msg_buffer> process(msg_context*, unique_ptr<some_class>) {
+//                log_info("B");
+//                return make_unique<msg_buffer>(1);
+//            };
+//        };
+//
+//        void t15() {
+//            auto filters = make_filter_chain(type_list<A, B>{});
+//            auto process = make_process_chain(type_list<A, B>{});
+//            process(nullptr, make_unique<msg_buffer>(1));
+////            log_info("%d", tuple_size<tuple<valid_process_filters<A, B>::types>>::value);
+//        }
 
     }
 

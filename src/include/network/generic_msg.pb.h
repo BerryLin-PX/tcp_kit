@@ -46,39 +46,39 @@ struct TableStruct_generic_5fmsg_2eproto {
 };
 extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_generic_5fmsg_2eproto;
 namespace tcp_kit {
+class BasicType;
+struct BasicTypeDefaultTypeInternal;
+extern BasicTypeDefaultTypeInternal _BasicType_default_instance_;
 class GenericMsg;
 struct GenericMsgDefaultTypeInternal;
 extern GenericMsgDefaultTypeInternal _GenericMsg_default_instance_;
-class Param;
-struct ParamDefaultTypeInternal;
-extern ParamDefaultTypeInternal _Param_default_instance_;
 }  // namespace tcp_kit
 PROTOBUF_NAMESPACE_OPEN
+template<> ::tcp_kit::BasicType* Arena::CreateMaybeMessage<::tcp_kit::BasicType>(Arena*);
 template<> ::tcp_kit::GenericMsg* Arena::CreateMaybeMessage<::tcp_kit::GenericMsg>(Arena*);
-template<> ::tcp_kit::Param* Arena::CreateMaybeMessage<::tcp_kit::Param>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace tcp_kit {
 
 // ===================================================================
 
-class Param final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:tcp_kit.Param) */ {
+class BasicType final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:tcp_kit.BasicType) */ {
  public:
-  inline Param() : Param(nullptr) {}
-  ~Param() override;
-  explicit PROTOBUF_CONSTEXPR Param(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline BasicType() : BasicType(nullptr) {}
+  ~BasicType() override;
+  explicit PROTOBUF_CONSTEXPR BasicType(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Param(const Param& from);
-  Param(Param&& from) noexcept
-    : Param() {
+  BasicType(const BasicType& from);
+  BasicType(BasicType&& from) noexcept
+    : BasicType() {
     *this = ::std::move(from);
   }
 
-  inline Param& operator=(const Param& from) {
+  inline BasicType& operator=(const BasicType& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Param& operator=(Param&& from) noexcept {
+  inline BasicType& operator=(BasicType&& from) noexcept {
     if (this == &from) return *this;
     if (GetOwningArena() == from.GetOwningArena()
   #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
@@ -101,7 +101,7 @@ class Param final :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Param& default_instance() {
+  static const BasicType& default_instance() {
     return *internal_default_instance();
   }
   enum ValueCase {
@@ -116,17 +116,17 @@ class Param final :
     VALUE_NOT_SET = 0,
   };
 
-  static inline const Param* internal_default_instance() {
-    return reinterpret_cast<const Param*>(
-               &_Param_default_instance_);
+  static inline const BasicType* internal_default_instance() {
+    return reinterpret_cast<const BasicType*>(
+               &_BasicType_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     0;
 
-  friend void swap(Param& a, Param& b) {
+  friend void swap(BasicType& a, BasicType& b) {
     a.Swap(&b);
   }
-  inline void Swap(Param* other) {
+  inline void Swap(BasicType* other) {
     if (other == this) return;
   #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
@@ -139,7 +139,7 @@ class Param final :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Param* other) {
+  void UnsafeArenaSwap(BasicType* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
@@ -147,13 +147,13 @@ class Param final :
 
   // implements Message ----------------------------------------------
 
-  Param* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
-    return CreateMaybeMessage<Param>(arena);
+  BasicType* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<BasicType>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const Param& from);
+  void CopyFrom(const BasicType& from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom(const Param& from);
+  void MergeFrom(const BasicType& from);
   private:
   static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to, const ::PROTOBUF_NAMESPACE_ID::Message& from);
   public:
@@ -170,15 +170,15 @@ class Param final :
   void SharedCtor();
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Param* other);
+  void InternalSwap(BasicType* other);
 
   private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "tcp_kit.Param";
+    return "tcp_kit.BasicType";
   }
   protected:
-  explicit Param(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+  explicit BasicType(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                        bool is_message_owned = false);
   public:
 
@@ -312,7 +312,7 @@ class Param final :
 
   void clear_value();
   ValueCase value_case() const;
-  // @@protoc_insertion_point(class_scope:tcp_kit.Param)
+  // @@protoc_insertion_point(class_scope:tcp_kit.BasicType)
  private:
   class _Internal;
   void set_has_u32();
@@ -472,22 +472,22 @@ class GenericMsg final :
     kApiFieldNumber = 1,
     kBodyFieldNumber = 3,
   };
-  // repeated .tcp_kit.Param params = 2;
+  // repeated .tcp_kit.BasicType params = 2;
   int params_size() const;
   private:
   int _internal_params_size() const;
   public:
   void clear_params();
-  ::tcp_kit::Param* mutable_params(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::Param >*
+  ::tcp_kit::BasicType* mutable_params(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::BasicType >*
       mutable_params();
   private:
-  const ::tcp_kit::Param& _internal_params(int index) const;
-  ::tcp_kit::Param* _internal_add_params();
+  const ::tcp_kit::BasicType& _internal_params(int index) const;
+  ::tcp_kit::BasicType* _internal_add_params();
   public:
-  const ::tcp_kit::Param& params(int index) const;
-  ::tcp_kit::Param* add_params();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::Param >&
+  const ::tcp_kit::BasicType& params(int index) const;
+  ::tcp_kit::BasicType* add_params();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::BasicType >&
       params() const;
 
   // string api = 1;
@@ -504,7 +504,7 @@ class GenericMsg final :
   std::string* _internal_mutable_api();
   public:
 
-  // optional .google.protobuf.any body = 3;
+  // optional .google.protobuf.Any body = 3;
   bool has_body() const;
   private:
   bool _internal_has_body() const;
@@ -531,7 +531,7 @@ class GenericMsg final :
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::Param > params_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::BasicType > params_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr api_;
   ::PROTOBUF_NAMESPACE_ID::Any* body_;
   friend struct ::TableStruct_generic_5fmsg_2eproto;
@@ -545,316 +545,316 @@ class GenericMsg final :
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif  // __GNUC__
-// Param
+// BasicType
 
 // uint32 u32 = 1;
-inline bool Param::_internal_has_u32() const {
+inline bool BasicType::_internal_has_u32() const {
   return value_case() == kU32;
 }
-inline bool Param::has_u32() const {
+inline bool BasicType::has_u32() const {
   return _internal_has_u32();
 }
-inline void Param::set_has_u32() {
+inline void BasicType::set_has_u32() {
   _oneof_case_[0] = kU32;
 }
-inline void Param::clear_u32() {
+inline void BasicType::clear_u32() {
   if (_internal_has_u32()) {
     value_.u32_ = 0u;
     clear_has_value();
   }
 }
-inline uint32_t Param::_internal_u32() const {
+inline uint32_t BasicType::_internal_u32() const {
   if (_internal_has_u32()) {
     return value_.u32_;
   }
   return 0u;
 }
-inline void Param::_internal_set_u32(uint32_t value) {
+inline void BasicType::_internal_set_u32(uint32_t value) {
   if (!_internal_has_u32()) {
     clear_value();
     set_has_u32();
   }
   value_.u32_ = value;
 }
-inline uint32_t Param::u32() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.u32)
+inline uint32_t BasicType::u32() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.u32)
   return _internal_u32();
 }
-inline void Param::set_u32(uint32_t value) {
+inline void BasicType::set_u32(uint32_t value) {
   _internal_set_u32(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.u32)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.u32)
 }
 
 // int32 s32 = 2;
-inline bool Param::_internal_has_s32() const {
+inline bool BasicType::_internal_has_s32() const {
   return value_case() == kS32;
 }
-inline bool Param::has_s32() const {
+inline bool BasicType::has_s32() const {
   return _internal_has_s32();
 }
-inline void Param::set_has_s32() {
+inline void BasicType::set_has_s32() {
   _oneof_case_[0] = kS32;
 }
-inline void Param::clear_s32() {
+inline void BasicType::clear_s32() {
   if (_internal_has_s32()) {
     value_.s32_ = 0;
     clear_has_value();
   }
 }
-inline int32_t Param::_internal_s32() const {
+inline int32_t BasicType::_internal_s32() const {
   if (_internal_has_s32()) {
     return value_.s32_;
   }
   return 0;
 }
-inline void Param::_internal_set_s32(int32_t value) {
+inline void BasicType::_internal_set_s32(int32_t value) {
   if (!_internal_has_s32()) {
     clear_value();
     set_has_s32();
   }
   value_.s32_ = value;
 }
-inline int32_t Param::s32() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.s32)
+inline int32_t BasicType::s32() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.s32)
   return _internal_s32();
 }
-inline void Param::set_s32(int32_t value) {
+inline void BasicType::set_s32(int32_t value) {
   _internal_set_s32(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.s32)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.s32)
 }
 
 // uint64 u64 = 3;
-inline bool Param::_internal_has_u64() const {
+inline bool BasicType::_internal_has_u64() const {
   return value_case() == kU64;
 }
-inline bool Param::has_u64() const {
+inline bool BasicType::has_u64() const {
   return _internal_has_u64();
 }
-inline void Param::set_has_u64() {
+inline void BasicType::set_has_u64() {
   _oneof_case_[0] = kU64;
 }
-inline void Param::clear_u64() {
+inline void BasicType::clear_u64() {
   if (_internal_has_u64()) {
     value_.u64_ = uint64_t{0u};
     clear_has_value();
   }
 }
-inline uint64_t Param::_internal_u64() const {
+inline uint64_t BasicType::_internal_u64() const {
   if (_internal_has_u64()) {
     return value_.u64_;
   }
   return uint64_t{0u};
 }
-inline void Param::_internal_set_u64(uint64_t value) {
+inline void BasicType::_internal_set_u64(uint64_t value) {
   if (!_internal_has_u64()) {
     clear_value();
     set_has_u64();
   }
   value_.u64_ = value;
 }
-inline uint64_t Param::u64() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.u64)
+inline uint64_t BasicType::u64() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.u64)
   return _internal_u64();
 }
-inline void Param::set_u64(uint64_t value) {
+inline void BasicType::set_u64(uint64_t value) {
   _internal_set_u64(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.u64)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.u64)
 }
 
 // int64 s64 = 4;
-inline bool Param::_internal_has_s64() const {
+inline bool BasicType::_internal_has_s64() const {
   return value_case() == kS64;
 }
-inline bool Param::has_s64() const {
+inline bool BasicType::has_s64() const {
   return _internal_has_s64();
 }
-inline void Param::set_has_s64() {
+inline void BasicType::set_has_s64() {
   _oneof_case_[0] = kS64;
 }
-inline void Param::clear_s64() {
+inline void BasicType::clear_s64() {
   if (_internal_has_s64()) {
     value_.s64_ = int64_t{0};
     clear_has_value();
   }
 }
-inline int64_t Param::_internal_s64() const {
+inline int64_t BasicType::_internal_s64() const {
   if (_internal_has_s64()) {
     return value_.s64_;
   }
   return int64_t{0};
 }
-inline void Param::_internal_set_s64(int64_t value) {
+inline void BasicType::_internal_set_s64(int64_t value) {
   if (!_internal_has_s64()) {
     clear_value();
     set_has_s64();
   }
   value_.s64_ = value;
 }
-inline int64_t Param::s64() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.s64)
+inline int64_t BasicType::s64() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.s64)
   return _internal_s64();
 }
-inline void Param::set_s64(int64_t value) {
+inline void BasicType::set_s64(int64_t value) {
   _internal_set_s64(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.s64)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.s64)
 }
 
 // float f = 5;
-inline bool Param::_internal_has_f() const {
+inline bool BasicType::_internal_has_f() const {
   return value_case() == kF;
 }
-inline bool Param::has_f() const {
+inline bool BasicType::has_f() const {
   return _internal_has_f();
 }
-inline void Param::set_has_f() {
+inline void BasicType::set_has_f() {
   _oneof_case_[0] = kF;
 }
-inline void Param::clear_f() {
+inline void BasicType::clear_f() {
   if (_internal_has_f()) {
     value_.f_ = 0;
     clear_has_value();
   }
 }
-inline float Param::_internal_f() const {
+inline float BasicType::_internal_f() const {
   if (_internal_has_f()) {
     return value_.f_;
   }
   return 0;
 }
-inline void Param::_internal_set_f(float value) {
+inline void BasicType::_internal_set_f(float value) {
   if (!_internal_has_f()) {
     clear_value();
     set_has_f();
   }
   value_.f_ = value;
 }
-inline float Param::f() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.f)
+inline float BasicType::f() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.f)
   return _internal_f();
 }
-inline void Param::set_f(float value) {
+inline void BasicType::set_f(float value) {
   _internal_set_f(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.f)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.f)
 }
 
 // double d = 6;
-inline bool Param::_internal_has_d() const {
+inline bool BasicType::_internal_has_d() const {
   return value_case() == kD;
 }
-inline bool Param::has_d() const {
+inline bool BasicType::has_d() const {
   return _internal_has_d();
 }
-inline void Param::set_has_d() {
+inline void BasicType::set_has_d() {
   _oneof_case_[0] = kD;
 }
-inline void Param::clear_d() {
+inline void BasicType::clear_d() {
   if (_internal_has_d()) {
     value_.d_ = 0;
     clear_has_value();
   }
 }
-inline double Param::_internal_d() const {
+inline double BasicType::_internal_d() const {
   if (_internal_has_d()) {
     return value_.d_;
   }
   return 0;
 }
-inline void Param::_internal_set_d(double value) {
+inline void BasicType::_internal_set_d(double value) {
   if (!_internal_has_d()) {
     clear_value();
     set_has_d();
   }
   value_.d_ = value;
 }
-inline double Param::d() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.d)
+inline double BasicType::d() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.d)
   return _internal_d();
 }
-inline void Param::set_d(double value) {
+inline void BasicType::set_d(double value) {
   _internal_set_d(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.d)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.d)
 }
 
 // bool b = 7;
-inline bool Param::_internal_has_b() const {
+inline bool BasicType::_internal_has_b() const {
   return value_case() == kB;
 }
-inline bool Param::has_b() const {
+inline bool BasicType::has_b() const {
   return _internal_has_b();
 }
-inline void Param::set_has_b() {
+inline void BasicType::set_has_b() {
   _oneof_case_[0] = kB;
 }
-inline void Param::clear_b() {
+inline void BasicType::clear_b() {
   if (_internal_has_b()) {
     value_.b_ = false;
     clear_has_value();
   }
 }
-inline bool Param::_internal_b() const {
+inline bool BasicType::_internal_b() const {
   if (_internal_has_b()) {
     return value_.b_;
   }
   return false;
 }
-inline void Param::_internal_set_b(bool value) {
+inline void BasicType::_internal_set_b(bool value) {
   if (!_internal_has_b()) {
     clear_value();
     set_has_b();
   }
   value_.b_ = value;
 }
-inline bool Param::b() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.b)
+inline bool BasicType::b() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.b)
   return _internal_b();
 }
-inline void Param::set_b(bool value) {
+inline void BasicType::set_b(bool value) {
   _internal_set_b(value);
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.b)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.b)
 }
 
 // string str = 8;
-inline bool Param::_internal_has_str() const {
+inline bool BasicType::_internal_has_str() const {
   return value_case() == kStr;
 }
-inline bool Param::has_str() const {
+inline bool BasicType::has_str() const {
   return _internal_has_str();
 }
-inline void Param::set_has_str() {
+inline void BasicType::set_has_str() {
   _oneof_case_[0] = kStr;
 }
-inline void Param::clear_str() {
+inline void BasicType::clear_str() {
   if (_internal_has_str()) {
     value_.str_.Destroy();
     clear_has_value();
   }
 }
-inline const std::string& Param::str() const {
-  // @@protoc_insertion_point(field_get:tcp_kit.Param.str)
+inline const std::string& BasicType::str() const {
+  // @@protoc_insertion_point(field_get:tcp_kit.BasicType.str)
   return _internal_str();
 }
 template <typename ArgT0, typename... ArgT>
-inline void Param::set_str(ArgT0&& arg0, ArgT... args) {
+inline void BasicType::set_str(ArgT0&& arg0, ArgT... args) {
   if (!_internal_has_str()) {
     clear_value();
     set_has_str();
     value_.str_.InitDefault();
   }
   value_.str_.Set( static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
-  // @@protoc_insertion_point(field_set:tcp_kit.Param.str)
+  // @@protoc_insertion_point(field_set:tcp_kit.BasicType.str)
 }
-inline std::string* Param::mutable_str() {
+inline std::string* BasicType::mutable_str() {
   std::string* _s = _internal_mutable_str();
-  // @@protoc_insertion_point(field_mutable:tcp_kit.Param.str)
+  // @@protoc_insertion_point(field_mutable:tcp_kit.BasicType.str)
   return _s;
 }
-inline const std::string& Param::_internal_str() const {
+inline const std::string& BasicType::_internal_str() const {
   if (_internal_has_str()) {
     return value_.str_.Get();
   }
   return ::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited();
 }
-inline void Param::_internal_set_str(const std::string& value) {
+inline void BasicType::_internal_set_str(const std::string& value) {
   if (!_internal_has_str()) {
     clear_value();
     set_has_str();
@@ -862,7 +862,7 @@ inline void Param::_internal_set_str(const std::string& value) {
   }
   value_.str_.Set(value, GetArenaForAllocation());
 }
-inline std::string* Param::_internal_mutable_str() {
+inline std::string* BasicType::_internal_mutable_str() {
   if (!_internal_has_str()) {
     clear_value();
     set_has_str();
@@ -870,8 +870,8 @@ inline std::string* Param::_internal_mutable_str() {
   }
   return value_.str_.Mutable(      GetArenaForAllocation());
 }
-inline std::string* Param::release_str() {
-  // @@protoc_insertion_point(field_release:tcp_kit.Param.str)
+inline std::string* BasicType::release_str() {
+  // @@protoc_insertion_point(field_release:tcp_kit.BasicType.str)
   if (_internal_has_str()) {
     clear_has_value();
     return value_.str_.Release();
@@ -879,7 +879,7 @@ inline std::string* Param::release_str() {
     return nullptr;
   }
 }
-inline void Param::set_allocated_str(std::string* str) {
+inline void BasicType::set_allocated_str(std::string* str) {
   if (has_value()) {
     clear_value();
   }
@@ -887,17 +887,17 @@ inline void Param::set_allocated_str(std::string* str) {
     set_has_str();
     value_.str_.InitAllocated(str, GetArenaForAllocation());
   }
-  // @@protoc_insertion_point(field_set_allocated:tcp_kit.Param.str)
+  // @@protoc_insertion_point(field_set_allocated:tcp_kit.BasicType.str)
 }
 
-inline bool Param::has_value() const {
+inline bool BasicType::has_value() const {
   return value_case() != VALUE_NOT_SET;
 }
-inline void Param::clear_has_value() {
+inline void BasicType::clear_has_value() {
   _oneof_case_[0] = VALUE_NOT_SET;
 }
-inline Param::ValueCase Param::value_case() const {
-  return Param::ValueCase(_oneof_case_[0]);
+inline BasicType::ValueCase BasicType::value_case() const {
+  return BasicType::ValueCase(_oneof_case_[0]);
 }
 // -------------------------------------------------------------------
 
@@ -953,7 +953,7 @@ inline void GenericMsg::set_allocated_api(std::string* api) {
   // @@protoc_insertion_point(field_set_allocated:tcp_kit.GenericMsg.api)
 }
 
-// repeated .tcp_kit.Param params = 2;
+// repeated .tcp_kit.BasicType params = 2;
 inline int GenericMsg::_internal_params_size() const {
   return params_.size();
 }
@@ -963,37 +963,37 @@ inline int GenericMsg::params_size() const {
 inline void GenericMsg::clear_params() {
   params_.Clear();
 }
-inline ::tcp_kit::Param* GenericMsg::mutable_params(int index) {
+inline ::tcp_kit::BasicType* GenericMsg::mutable_params(int index) {
   // @@protoc_insertion_point(field_mutable:tcp_kit.GenericMsg.params)
   return params_.Mutable(index);
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::Param >*
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::BasicType >*
 GenericMsg::mutable_params() {
   // @@protoc_insertion_point(field_mutable_list:tcp_kit.GenericMsg.params)
   return &params_;
 }
-inline const ::tcp_kit::Param& GenericMsg::_internal_params(int index) const {
+inline const ::tcp_kit::BasicType& GenericMsg::_internal_params(int index) const {
   return params_.Get(index);
 }
-inline const ::tcp_kit::Param& GenericMsg::params(int index) const {
+inline const ::tcp_kit::BasicType& GenericMsg::params(int index) const {
   // @@protoc_insertion_point(field_get:tcp_kit.GenericMsg.params)
   return _internal_params(index);
 }
-inline ::tcp_kit::Param* GenericMsg::_internal_add_params() {
+inline ::tcp_kit::BasicType* GenericMsg::_internal_add_params() {
   return params_.Add();
 }
-inline ::tcp_kit::Param* GenericMsg::add_params() {
-  ::tcp_kit::Param* _add = _internal_add_params();
+inline ::tcp_kit::BasicType* GenericMsg::add_params() {
+  ::tcp_kit::BasicType* _add = _internal_add_params();
   // @@protoc_insertion_point(field_add:tcp_kit.GenericMsg.params)
   return _add;
 }
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::Param >&
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::tcp_kit::BasicType >&
 GenericMsg::params() const {
   // @@protoc_insertion_point(field_list:tcp_kit.GenericMsg.params)
   return params_;
 }
 
-// optional .google.protobuf.any body = 3;
+// optional .google.protobuf.Any body = 3;
 inline bool GenericMsg::_internal_has_body() const {
   bool value = (_has_bits_[0] & 0x00000001u) != 0;
   PROTOBUF_ASSUME(!value || body_ != nullptr);

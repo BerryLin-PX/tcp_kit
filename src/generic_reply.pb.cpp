@@ -21,9 +21,22 @@ namespace _pb = ::PROTOBUF_NAMESPACE_ID;
 namespace _pbi = _pb::internal;
 
 namespace tcp_kit {
+PROTOBUF_CONSTEXPR GenericReply_BasicType::GenericReply_BasicType(
+    ::_pbi::ConstantInitialized)
+  : _oneof_case_{}{}
+struct GenericReply_BasicTypeDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR GenericReply_BasicTypeDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~GenericReply_BasicTypeDefaultTypeInternal() {}
+  union {
+    GenericReply_BasicType _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GenericReply_BasicTypeDefaultTypeInternal _GenericReply_BasicType_default_instance_;
 PROTOBUF_CONSTEXPR GenericReply::GenericReply(
     ::_pbi::ConstantInitialized)
   : msg_(&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{})
+  , result_(nullptr)
   , body_(nullptr)
   , code_(0)
 {}
@@ -37,11 +50,26 @@ struct GenericReplyDefaultTypeInternal {
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GenericReplyDefaultTypeInternal _GenericReply_default_instance_;
 }  // namespace tcp_kit
-static ::_pb::Metadata file_level_metadata_generic_5freply_2eproto[1];
+static ::_pb::Metadata file_level_metadata_generic_5freply_2eproto[2];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_generic_5freply_2eproto[1];
 static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors_generic_5freply_2eproto = nullptr;
 
 const uint32_t TableStruct_generic_5freply_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply_BasicType, _internal_metadata_),
+  ~0u,  // no _extensions_
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply_BasicType, _oneof_case_[0]),
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply_BasicType, value_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, _has_bits_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -50,37 +78,46 @@ const uint32_t TableStruct_generic_5freply_2eproto::offsets[] PROTOBUF_SECTION_V
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, code_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, msg_),
+  PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, result_),
   PROTOBUF_FIELD_OFFSET(::tcp_kit::GenericReply, body_),
   ~0u,
   0,
   1,
+  2,
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, 9, -1, sizeof(::tcp_kit::GenericReply)},
+  { 0, -1, -1, sizeof(::tcp_kit::GenericReply_BasicType)},
+  { 15, 25, -1, sizeof(::tcp_kit::GenericReply)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
+  &::tcp_kit::_GenericReply_BasicType_default_instance_._instance,
   &::tcp_kit::_GenericReply_default_instance_._instance,
 };
 
 const char descriptor_table_protodef_generic_5freply_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\023generic_reply.proto\022\007tcp_kit\032\031google/p"
-  "rotobuf/any.proto\"\331\001\n\014GenericReply\022(\n\004co"
+  "rotobuf/any.proto\"\243\003\n\014GenericReply\022(\n\004co"
   "de\030\001 \001(\0162\032.tcp_kit.GenericReply.Code\022\020\n\003"
-  "msg\030\002 \001(\tH\000\210\001\001\022\'\n\004body\030\003 \001(\0132\024.google.pr"
-  "otobuf.AnyH\001\210\001\001\"S\n\004Code\022\017\n\013UNKNOWN_ERR\020\000"
-  "\022\014\n\007SUCCESS\020\310\001\022\022\n\rRES_NOT_FOUND\020\224\003\022\030\n\023IN"
-  "TERNAL_SERVER_ERR\020\364\003B\006\n\004_msgB\007\n\005_bodyb\006p"
-  "roto3"
+  "msg\030\002 \001(\tH\000\210\001\001\0224\n\006result\030\003 \001(\0132\037.tcp_kit"
+  ".GenericReply.BasicTypeH\001\210\001\001\022\'\n\004body\030\004 \001"
+  "(\0132\024.google.protobuf.AnyH\002\210\001\001\032\206\001\n\tBasicT"
+  "ype\022\r\n\003u32\030\001 \001(\rH\000\022\r\n\003s32\030\002 \001(\005H\000\022\r\n\003u64"
+  "\030\003 \001(\004H\000\022\r\n\003s64\030\004 \001(\003H\000\022\013\n\001f\030\005 \001(\002H\000\022\013\n\001"
+  "d\030\006 \001(\001H\000\022\013\n\001b\030\007 \001(\010H\000\022\r\n\003str\030\010 \001(\tH\000B\007\n"
+  "\005value\"S\n\004Code\022\017\n\013UNKNOWN_ERR\020\000\022\014\n\007SUCCE"
+  "SS\020\310\001\022\022\n\rRES_NOT_FOUND\020\224\003\022\030\n\023INTERNAL_SE"
+  "RVER_ERR\020\364\003B\006\n\004_msgB\t\n\007_resultB\007\n\005_bodyb"
+  "\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_generic_5freply_2eproto_deps[1] = {
   &::descriptor_table_google_2fprotobuf_2fany_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_generic_5freply_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_generic_5freply_2eproto = {
-    false, false, 285, descriptor_table_protodef_generic_5freply_2eproto,
+    false, false, 487, descriptor_table_protodef_generic_5freply_2eproto,
     "generic_reply.proto",
-    &descriptor_table_generic_5freply_2eproto_once, descriptor_table_generic_5freply_2eproto_deps, 1, 1,
+    &descriptor_table_generic_5freply_2eproto_once, descriptor_table_generic_5freply_2eproto_deps, 1, 2,
     schemas, file_default_instances, TableStruct_generic_5freply_2eproto::offsets,
     file_level_metadata_generic_5freply_2eproto, file_level_enum_descriptors_generic_5freply_2eproto,
     file_level_service_descriptors_generic_5freply_2eproto,
@@ -120,25 +157,468 @@ constexpr int GenericReply::Code_ARRAYSIZE;
 
 // ===================================================================
 
+class GenericReply_BasicType::_Internal {
+ public:
+};
+
+GenericReply_BasicType::GenericReply_BasicType(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor();
+  // @@protoc_insertion_point(arena_constructor:tcp_kit.GenericReply.BasicType)
+}
+GenericReply_BasicType::GenericReply_BasicType(const GenericReply_BasicType& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  clear_has_value();
+  switch (from.value_case()) {
+    case kU32: {
+      _internal_set_u32(from._internal_u32());
+      break;
+    }
+    case kS32: {
+      _internal_set_s32(from._internal_s32());
+      break;
+    }
+    case kU64: {
+      _internal_set_u64(from._internal_u64());
+      break;
+    }
+    case kS64: {
+      _internal_set_s64(from._internal_s64());
+      break;
+    }
+    case kF: {
+      _internal_set_f(from._internal_f());
+      break;
+    }
+    case kD: {
+      _internal_set_d(from._internal_d());
+      break;
+    }
+    case kB: {
+      _internal_set_b(from._internal_b());
+      break;
+    }
+    case kStr: {
+      _internal_set_str(from._internal_str());
+      break;
+    }
+    case VALUE_NOT_SET: {
+      break;
+    }
+  }
+  // @@protoc_insertion_point(copy_constructor:tcp_kit.GenericReply.BasicType)
+}
+
+inline void GenericReply_BasicType::SharedCtor() {
+clear_has_value();
+}
+
+GenericReply_BasicType::~GenericReply_BasicType() {
+  // @@protoc_insertion_point(destructor:tcp_kit.GenericReply.BasicType)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void GenericReply_BasicType::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  if (has_value()) {
+    clear_value();
+  }
+}
+
+void GenericReply_BasicType::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void GenericReply_BasicType::clear_value() {
+// @@protoc_insertion_point(one_of_clear_start:tcp_kit.GenericReply.BasicType)
+  switch (value_case()) {
+    case kU32: {
+      // No need to clear
+      break;
+    }
+    case kS32: {
+      // No need to clear
+      break;
+    }
+    case kU64: {
+      // No need to clear
+      break;
+    }
+    case kS64: {
+      // No need to clear
+      break;
+    }
+    case kF: {
+      // No need to clear
+      break;
+    }
+    case kD: {
+      // No need to clear
+      break;
+    }
+    case kB: {
+      // No need to clear
+      break;
+    }
+    case kStr: {
+      value_.str_.Destroy();
+      break;
+    }
+    case VALUE_NOT_SET: {
+      break;
+    }
+  }
+  _oneof_case_[0] = VALUE_NOT_SET;
+}
+
+
+void GenericReply_BasicType::Clear() {
+// @@protoc_insertion_point(message_clear_start:tcp_kit.GenericReply.BasicType)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  clear_value();
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* GenericReply_BasicType::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // uint32 u32 = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          _internal_set_u32(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // int32 s32 = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
+          _internal_set_s32(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint64 u64 = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          _internal_set_u64(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr));
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // int64 s64 = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _internal_set_s64(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr));
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // float f = 5;
+      case 5:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 45)) {
+          _internal_set_f(::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<float>(ptr));
+          ptr += sizeof(float);
+        } else
+          goto handle_unusual;
+        continue;
+      // double d = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 49)) {
+          _internal_set_d(::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr));
+          ptr += sizeof(double);
+        } else
+          goto handle_unusual;
+        continue;
+      // bool b = 7;
+      case 7:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 56)) {
+          _internal_set_b(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr));
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // string str = 8;
+      case 8:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 66)) {
+          auto str = _internal_mutable_str();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "tcp_kit.GenericReply.BasicType.str"));
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* GenericReply_BasicType::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:tcp_kit.GenericReply.BasicType)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint32 u32 = 1;
+  if (_internal_has_u32()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(1, this->_internal_u32(), target);
+  }
+
+  // int32 s32 = 2;
+  if (_internal_has_s32()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt32ToArray(2, this->_internal_s32(), target);
+  }
+
+  // uint64 u64 = 3;
+  if (_internal_has_u64()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(3, this->_internal_u64(), target);
+  }
+
+  // int64 s64 = 4;
+  if (_internal_has_s64()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt64ToArray(4, this->_internal_s64(), target);
+  }
+
+  // float f = 5;
+  if (_internal_has_f()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteFloatToArray(5, this->_internal_f(), target);
+  }
+
+  // double d = 6;
+  if (_internal_has_d()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(6, this->_internal_d(), target);
+  }
+
+  // bool b = 7;
+  if (_internal_has_b()) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(7, this->_internal_b(), target);
+  }
+
+  // string str = 8;
+  if (_internal_has_str()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_str().data(), static_cast<int>(this->_internal_str().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "tcp_kit.GenericReply.BasicType.str");
+    target = stream->WriteStringMaybeAliased(
+        8, this->_internal_str(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:tcp_kit.GenericReply.BasicType)
+  return target;
+}
+
+size_t GenericReply_BasicType::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:tcp_kit.GenericReply.BasicType)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  switch (value_case()) {
+    // uint32 u32 = 1;
+    case kU32: {
+      total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_u32());
+      break;
+    }
+    // int32 s32 = 2;
+    case kS32: {
+      total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_s32());
+      break;
+    }
+    // uint64 u64 = 3;
+    case kU64: {
+      total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_u64());
+      break;
+    }
+    // int64 s64 = 4;
+    case kS64: {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(this->_internal_s64());
+      break;
+    }
+    // float f = 5;
+    case kF: {
+      total_size += 1 + 4;
+      break;
+    }
+    // double d = 6;
+    case kD: {
+      total_size += 1 + 8;
+      break;
+    }
+    // bool b = 7;
+    case kB: {
+      total_size += 1 + 1;
+      break;
+    }
+    // string str = 8;
+    case kStr: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+          this->_internal_str());
+      break;
+    }
+    case VALUE_NOT_SET: {
+      break;
+    }
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData GenericReply_BasicType::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    GenericReply_BasicType::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GenericReply_BasicType::GetClassData() const { return &_class_data_; }
+
+void GenericReply_BasicType::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<GenericReply_BasicType *>(to)->MergeFrom(
+      static_cast<const GenericReply_BasicType &>(from));
+}
+
+
+void GenericReply_BasicType::MergeFrom(const GenericReply_BasicType& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:tcp_kit.GenericReply.BasicType)
+  GOOGLE_DCHECK_NE(&from, this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  switch (from.value_case()) {
+    case kU32: {
+      _internal_set_u32(from._internal_u32());
+      break;
+    }
+    case kS32: {
+      _internal_set_s32(from._internal_s32());
+      break;
+    }
+    case kU64: {
+      _internal_set_u64(from._internal_u64());
+      break;
+    }
+    case kS64: {
+      _internal_set_s64(from._internal_s64());
+      break;
+    }
+    case kF: {
+      _internal_set_f(from._internal_f());
+      break;
+    }
+    case kD: {
+      _internal_set_d(from._internal_d());
+      break;
+    }
+    case kB: {
+      _internal_set_b(from._internal_b());
+      break;
+    }
+    case kStr: {
+      _internal_set_str(from._internal_str());
+      break;
+    }
+    case VALUE_NOT_SET: {
+      break;
+    }
+  }
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void GenericReply_BasicType::CopyFrom(const GenericReply_BasicType& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:tcp_kit.GenericReply.BasicType)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool GenericReply_BasicType::IsInitialized() const {
+  return true;
+}
+
+void GenericReply_BasicType::InternalSwap(GenericReply_BasicType* other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(value_, other->value_);
+  swap(_oneof_case_[0], other->_oneof_case_[0]);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata GenericReply_BasicType::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_generic_5freply_2eproto_getter, &descriptor_table_generic_5freply_2eproto_once,
+      file_level_metadata_generic_5freply_2eproto[0]);
+}
+
+// ===================================================================
+
 class GenericReply::_Internal {
  public:
   using HasBits = decltype(std::declval<GenericReply>()._has_bits_);
   static void set_has_msg(HasBits* has_bits) {
     (*has_bits)[0] |= 1u;
   }
+  static const ::tcp_kit::GenericReply_BasicType& result(const GenericReply* msg);
+  static void set_has_result(HasBits* has_bits) {
+    (*has_bits)[0] |= 2u;
+  }
   static const ::PROTOBUF_NAMESPACE_ID::Any& body(const GenericReply* msg);
   static void set_has_body(HasBits* has_bits) {
-    (*has_bits)[0] |= 2u;
+    (*has_bits)[0] |= 4u;
   }
 };
 
+const ::tcp_kit::GenericReply_BasicType&
+GenericReply::_Internal::result(const GenericReply* msg) {
+  return *msg->result_;
+}
 const ::PROTOBUF_NAMESPACE_ID::Any&
 GenericReply::_Internal::body(const GenericReply* msg) {
   return *msg->body_;
 }
 void GenericReply::clear_body() {
   if (body_ != nullptr) body_->Clear();
-  _has_bits_[0] &= ~0x00000002u;
+  _has_bits_[0] &= ~0x00000004u;
 }
 GenericReply::GenericReply(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                          bool is_message_owned)
@@ -158,6 +638,11 @@ GenericReply::GenericReply(const GenericReply& from)
     msg_.Set(from._internal_msg(), 
       GetArenaForAllocation());
   }
+  if (from._internal_has_result()) {
+    result_ = new ::tcp_kit::GenericReply_BasicType(*from.result_);
+  } else {
+    result_ = nullptr;
+  }
   if (from._internal_has_body()) {
     body_ = new ::PROTOBUF_NAMESPACE_ID::Any(*from.body_);
   } else {
@@ -173,9 +658,9 @@ msg_.InitDefault();
   msg_.Set("", GetArenaForAllocation());
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&body_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&result_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&code_) -
-    reinterpret_cast<char*>(&body_)) + sizeof(code_));
+    reinterpret_cast<char*>(&result_)) + sizeof(code_));
 }
 
 GenericReply::~GenericReply() {
@@ -190,6 +675,7 @@ GenericReply::~GenericReply() {
 inline void GenericReply::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   msg_.Destroy();
+  if (this != internal_default_instance()) delete result_;
   if (this != internal_default_instance()) delete body_;
 }
 
@@ -204,11 +690,15 @@ void GenericReply::Clear() {
   (void) cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
+  if (cached_has_bits & 0x00000007u) {
     if (cached_has_bits & 0x00000001u) {
       msg_.ClearNonDefaultToEmpty();
     }
     if (cached_has_bits & 0x00000002u) {
+      GOOGLE_DCHECK(result_ != nullptr);
+      result_->Clear();
+    }
+    if (cached_has_bits & 0x00000004u) {
       GOOGLE_DCHECK(body_ != nullptr);
       body_->Clear();
     }
@@ -244,9 +734,17 @@ const char* GenericReply::_InternalParse(const char* ptr, ::_pbi::ParseContext* 
         } else
           goto handle_unusual;
         continue;
-      // optional .google.protobuf.any body = 3;
+      // optional .tcp_kit.GenericReply.BasicType result = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
+          ptr = ctx->ParseMessage(_internal_mutable_result(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // optional .google.protobuf.Any body = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
           ptr = ctx->ParseMessage(_internal_mutable_body(), ptr);
           CHK_(ptr);
         } else
@@ -299,10 +797,17 @@ uint8_t* GenericReply::_InternalSerialize(
         2, this->_internal_msg(), target);
   }
 
-  // optional .google.protobuf.any body = 3;
+  // optional .tcp_kit.GenericReply.BasicType result = 3;
+  if (_internal_has_result()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(3, _Internal::result(this),
+        _Internal::result(this).GetCachedSize(), target, stream);
+  }
+
+  // optional .google.protobuf.Any body = 4;
   if (_internal_has_body()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(3, _Internal::body(this),
+      InternalWriteMessage(4, _Internal::body(this),
         _Internal::body(this).GetCachedSize(), target, stream);
   }
 
@@ -323,7 +828,7 @@ size_t GenericReply::ByteSizeLong() const {
   (void) cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
+  if (cached_has_bits & 0x00000007u) {
     // optional string msg = 2;
     if (cached_has_bits & 0x00000001u) {
       total_size += 1 +
@@ -331,8 +836,15 @@ size_t GenericReply::ByteSizeLong() const {
           this->_internal_msg());
     }
 
-    // optional .google.protobuf.any body = 3;
+    // optional .tcp_kit.GenericReply.BasicType result = 3;
     if (cached_has_bits & 0x00000002u) {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *result_);
+    }
+
+    // optional .google.protobuf.Any body = 4;
+    if (cached_has_bits & 0x00000004u) {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *body_);
@@ -368,11 +880,14 @@ void GenericReply::MergeFrom(const GenericReply& from) {
   (void) cached_has_bits;
 
   cached_has_bits = from._has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
+  if (cached_has_bits & 0x00000007u) {
     if (cached_has_bits & 0x00000001u) {
       _internal_set_msg(from._internal_msg());
     }
     if (cached_has_bits & 0x00000002u) {
+      _internal_mutable_result()->::tcp_kit::GenericReply_BasicType::MergeFrom(from._internal_result());
+    }
+    if (cached_has_bits & 0x00000004u) {
       _internal_mutable_body()->::PROTOBUF_NAMESPACE_ID::Any::MergeFrom(from._internal_body());
     }
   }
@@ -406,20 +921,24 @@ void GenericReply::InternalSwap(GenericReply* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(GenericReply, code_)
       + sizeof(GenericReply::code_)
-      - PROTOBUF_FIELD_OFFSET(GenericReply, body_)>(
-          reinterpret_cast<char*>(&body_),
-          reinterpret_cast<char*>(&other->body_));
+      - PROTOBUF_FIELD_OFFSET(GenericReply, result_)>(
+          reinterpret_cast<char*>(&result_),
+          reinterpret_cast<char*>(&other->result_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata GenericReply::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_generic_5freply_2eproto_getter, &descriptor_table_generic_5freply_2eproto_once,
-      file_level_metadata_generic_5freply_2eproto[0]);
+      file_level_metadata_generic_5freply_2eproto[1]);
 }
 
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace tcp_kit
 PROTOBUF_NAMESPACE_OPEN
+template<> PROTOBUF_NOINLINE ::tcp_kit::GenericReply_BasicType*
+Arena::CreateMaybeMessage< ::tcp_kit::GenericReply_BasicType >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::tcp_kit::GenericReply_BasicType >(arena);
+}
 template<> PROTOBUF_NOINLINE ::tcp_kit::GenericReply*
 Arena::CreateMaybeMessage< ::tcp_kit::GenericReply >(Arena* arena) {
   return Arena::CreateMessageInternal< ::tcp_kit::GenericReply >(arena);

@@ -8,6 +8,7 @@ namespace tcp_kit {
 
         enum error_flags {
             CONS_BEV_FAILED,     // 构造 bufferevent 时出错
+            CONS_EVENT_FAILED,   // 构造 event 时出错
             PRCS_ARG_MISMATCHED, // 匹配 process 过滤器参数时出错
             API_ARGS_MISMATCHED, // 匹配 api 参数时出错
             UNSUPPORTED_TYPE,    // 不支持的类型

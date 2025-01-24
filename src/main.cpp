@@ -20,9 +20,6 @@
 
 
 int main() {
-    for(int i =0; i < 1000; i++) {
-        tcp_kit::lock_free_queue_test::t1();
-    }
-//    tcp_kit::server_test::t12();
+    tcp_kit::server_test::t14();
     return 0;
 }

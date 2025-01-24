@@ -8,8 +8,8 @@ add_definitions(-levent -levent_pthreads)
 set(CMAKE_CXX_STANDARD 11)
 
 set(LIBEVENT_INCLUDE_DIR /usr/local/opt/libevent/include)
-set(LIBEVENT_LIBRARIES /usr/local/opt/libevent/lib/libevent.a)
-#                       /usr/local/opt/libevent/lib/libevent_pthreads.a)
+set(LIBEVENT_LIBRARIES /usr/local/opt/libevent/lib/libevent.a
+                       /usr/local/opt/libevent/lib/libevent_pthreads.a)
 set(LIBEVENT_OPEN_SSL_LIBRARIES /usr/local/opt/libevent/lib/libevent_openssl.a)
 
 set(GTEST_LIB /usr/local/opt/googletest)
@@ -24,7 +24,8 @@ find_package(Protobuf REQUIRED)
 file(GLOB_RECURSE ALL_FILES
         "${CMAKE_SOURCE_DIR}/src/*.h"
         "${CMAKE_SOURCE_DIR}/src/*.cpp"
-        "${CMAKE_SOURCE_DIR}/src/*.hpp")
+        "${CMAKE_SOURCE_DIR}/src/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/*.proto")
 
 add_executable(tcp_kit ${ALL_FILES})
 

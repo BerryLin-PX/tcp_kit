@@ -3,8 +3,22 @@ syntax = "proto3";
 package tcp_kit;
 
 import "google/protobuf/any.proto";
+//import "include/network/basic_type.proto";
 
 message GenericReply {
+
+    message BasicType {
+        oneof value {
+            uint32 u32 = 1;
+            int32  s32 = 2;
+            uint64 u64 = 3;
+            int64  s64 = 4;
+            float  f   = 5;
+            double d   = 6;
+            bool   b   = 7;
+            string str = 8;
+        }
+    }
 
     enum Code {
         UNKNOWN_ERR = 0;
@@ -15,5 +29,7 @@ message GenericReply {
 
     Code code = 1;
     optional string msg = 2;
-    optional google.protobuf.Any body = 3;
+    optional BasicType result  = 3;
+    optional google.protobuf.Any body = 4;
+
 }
