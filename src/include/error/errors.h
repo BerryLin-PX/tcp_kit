@@ -12,6 +12,9 @@ namespace tcp_kit {
             PRCS_ARG_MISMATCHED, // 匹配 process 过滤器参数时出错
             API_ARGS_MISMATCHED, // 匹配 api 参数时出错
             UNSUPPORTED_TYPE,    // 不支持的类型
+            RES_NOT_FOUND,       // 资源不存在
+            ILLEGALITY_ARGS,     // 非法参数
+            SERIALIZE_MSG_ERROR  // 序列化消息失败
         };
 
         template<error_flags F>

@@ -38,6 +38,45 @@ namespace tcp_kit {
             });
         }
 
+        void execute_task_test() {
+            unique_ptr<blocking_fifo<runnable>> work_queue(new blocking_fifo<runnable>(3));
+            thread_pool pool(2, 4, 1000, std::move(work_queue));
+            std::atomic<int> counter{0};
+            const int tasks = 10;
+            for (int i = 0; i < tasks; ++i) {
+                pool.execute([&counter] { ++counter; });
+            }
+            pool.shutdown();
+            pool.await_termination();
+            log_info("Count of task: %d", counter.load());
+        }
+
+        std::atomic<uint32_t> thread_counter(0);
+        class count_thread { public: count_thread() { ++thread_counter; } };
+        thread_local count_thread count;
+
+        void core_size_limit_test() {
+            unique_ptr<blocking_fifo<runnable>> work_queue(new blocking_fifo<runnable>(3));
+            thread_pool pool(2, 2, 1000, std::move(work_queue));
+            for (int i = 0; i < 1000; ++i) {
+                pool.execute([]{ count; });
+            }
+            pool.shutdown();
+            pool.await_termination();
+            log_info("Count of thread: %d", thread_counter.load());
+        }
+
+        void shutdown_test() {
+            unique_ptr<blocking_fifo<runnable>> work_queue(new blocking_fifo<runnable>(3));
+            thread_pool pool(2, 4, 1000, std::move(work_queue));
+            for (int i = 0; i < 10; ++i) {
+                pool.execute([]{});
+            }
+            pool.shutdown();
+            pool.await_termination();
+            pool.execute([]{});
+        }
+
     }
 
 }

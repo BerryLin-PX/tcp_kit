@@ -105,8 +105,8 @@ namespace tcp_kit {
         server_base* _server_base;
         std::shared_ptr<filter_chain> _filters;
 
-        void call_conn_filters(struct ev_context* ctx);
-        void register_read_write_filters(struct ev_context* ctx);
+        void call_conn_filters(struct ev_context *ctx);
+        void register_read_write_filters(struct ev_context *ctx);
         // std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
 
     };
@@ -136,10 +136,10 @@ namespace tcp_kit {
     // 模版参数 Protocols:
     // Protocols 代表协议(Protocol), 将 server 指定为任意协议实现, 如: server<generic> svr; 或: server<http> svr;
     // Protocols 必须满足以下条件:
-    //   1: Protocols 有子类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
-    //   2: Protocols 有子类 handler 且派生于 handler 类, 无参构造函数
-    //   3: Protocols 如若有默认的过滤器集, 声明 filter_types 类型, 如: using filter_types = type_list<filter1, filter2, filter3...>;
-    //   4: Protocols 有子类 api_dispatcher<uint16_t PORT>, 无参构造函数, 且具备以下条件:
+    //   1: 有公共成员类 ev_handler 且派生于 ev_handler_base 类, 无参构造函数
+    //   2: 有公共成员类 handler 且派生于 handler 类, 无参构造函数
+    //   3: 如若有默认的过滤器集, 声明 filter_types 类型, 如: using filter_types = type_list<filter1, filter2, filter3...>;
+    //   4: 有公共成员类 api_dispatcher<uint16_t PORT>, 无参构造函数, 且具备以下条件:
     //      ----------------------------------------------------------------------------------------------------------
     //      1. api 函数(static 修饰)
     //      该函数在 server 中注册一个 api, 以便对消息进行区分: svr.api("echo", [](string msg){ return msg; });
@@ -150,7 +150,6 @@ namespace tcp_kit {
     //      void api(Identity id, Processor prcs);
     //      ----------------------------------------------------------------------------------------------------------
     //      2. 过滤器
-    //      如有需要注册过滤器, 在此类中实现 filter 的 process 函数
     //      使用 api_dispatcher_p 代替实际类型, 如: using filter_types = type_list<filter1, api_dispatcher_p>
     //
     // 线程的分配:
@@ -168,10 +167,9 @@ namespace tcp_kit {
     // 消息队列
     //   ev_handler 和 handler 使用队列传递消息. 根据它们线程数的不同, 自动选择使用是否支持在多线程同步的队列, 在分配线程时尽量不要使
     //   ev_handler 的线程数多于 handler 的线程数, 这将产生竞争
-
+    //
     // 生命周期函数:
     //   when_ready(): 进入 READY 状态后回调, 随后进入 RUNNING 状态
-
     template <typename Protocols, uint16_t PORT = 3000>
     class server: public server_base {
 
@@ -179,7 +177,7 @@ namespace tcp_kit {
         using ev_handler_t     = typename Protocols::template ev_handler<PORT>;
         using handler_t        = typename Protocols::handler;
         using api_dispatcher_t = typename Protocols::template api_dispatcher<PORT>;
-        using filter_types     = typename replace_type<typename Protocols::filters, api_dispatcher_p, api_dispatcher_t>::type;
+        using filter_types     = typename replace_type<typename Protocols::filters,api_dispatcher_p,api_dispatcher_t>::type;
 
         static_assert(std::is_base_of<ev_handler_base, ev_handler_t>::value , "Protocols::ev_handler must be derived from ev_handler_base.");
         static_assert(std::is_base_of<handler_base, handler_t>::value , "Protocols::handler must be derived from handler_base.");
@@ -217,7 +215,7 @@ namespace tcp_kit {
     };
 
     template <typename Protocols, uint16_t PORT>
-    server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler): server_base(make_filter_chain(filter_types{})) {
+    server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler): _ready_threads(0), server_base(make_filter_chain(filter_types{})) {
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
             throw std::invalid_argument("Illegal Parameter.");
         _ctl |= NEW;

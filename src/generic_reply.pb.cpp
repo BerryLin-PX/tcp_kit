@@ -97,7 +97,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_generic_5freply_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\023generic_reply.proto\022\007tcp_kit\032\031google/p"
-  "rotobuf/any.proto\"\243\003\n\014GenericReply\022(\n\004co"
+  "rotobuf/any.proto\"\257\003\n\014GenericReply\022(\n\004co"
   "de\030\001 \001(\0162\032.tcp_kit.GenericReply.Code\022\020\n\003"
   "msg\030\002 \001(\tH\000\210\001\001\0224\n\006result\030\003 \001(\0132\037.tcp_kit"
   ".GenericReply.BasicTypeH\001\210\001\001\022\'\n\004body\030\004 \001"
@@ -105,17 +105,17 @@ const char descriptor_table_protodef_generic_5freply_2eproto[] PROTOBUF_SECTION_
   "ype\022\r\n\003u32\030\001 \001(\rH\000\022\r\n\003s32\030\002 \001(\005H\000\022\r\n\003u64"
   "\030\003 \001(\004H\000\022\r\n\003s64\030\004 \001(\003H\000\022\013\n\001f\030\005 \001(\002H\000\022\013\n\001"
   "d\030\006 \001(\001H\000\022\013\n\001b\030\007 \001(\010H\000\022\r\n\003str\030\010 \001(\tH\000B\007\n"
-  "\005value\"S\n\004Code\022\017\n\013UNKNOWN_ERR\020\000\022\014\n\007SUCCE"
+  "\005value\"_\n\004Code\022\017\n\013UNKNOWN_ERR\020\000\022\014\n\007SUCCE"
   "SS\020\310\001\022\022\n\rRES_NOT_FOUND\020\224\003\022\030\n\023INTERNAL_SE"
-  "RVER_ERR\020\364\003B\006\n\004_msgB\t\n\007_resultB\007\n\005_bodyb"
-  "\006proto3"
+  "RVER_ERR\020\364\003\022\n\n\005ERROR\020\371\003B\006\n\004_msgB\t\n\007_resu"
+  "ltB\007\n\005_bodyb\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_generic_5freply_2eproto_deps[1] = {
   &::descriptor_table_google_2fprotobuf_2fany_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_generic_5freply_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_generic_5freply_2eproto = {
-    false, false, 487, descriptor_table_protodef_generic_5freply_2eproto,
+    false, false, 499, descriptor_table_protodef_generic_5freply_2eproto,
     "generic_reply.proto",
     &descriptor_table_generic_5freply_2eproto_once, descriptor_table_generic_5freply_2eproto_deps, 1, 2,
     schemas, file_default_instances, TableStruct_generic_5freply_2eproto::offsets,
@@ -139,6 +139,7 @@ bool GenericReply_Code_IsValid(int value) {
     case 200:
     case 404:
     case 500:
+    case 505:
       return true;
     default:
       return false;
@@ -150,6 +151,7 @@ constexpr GenericReply_Code GenericReply::UNKNOWN_ERR;
 constexpr GenericReply_Code GenericReply::SUCCESS;
 constexpr GenericReply_Code GenericReply::RES_NOT_FOUND;
 constexpr GenericReply_Code GenericReply::INTERNAL_SERVER_ERR;
+constexpr GenericReply_Code GenericReply::ERROR;
 constexpr GenericReply_Code GenericReply::Code_MIN;
 constexpr GenericReply_Code GenericReply::Code_MAX;
 constexpr int GenericReply::Code_ARRAYSIZE;

@@ -5,6 +5,11 @@
 #include <type_traits>
 #include <util/func_traits.h>
 #include <network/json.h>
+#include <google/protobuf/util/json_util.h>
+#include <chrono>
+#include <iomanip>
+#include <fstream>
+#include <google/protobuf/util/json_util.h>
 
 namespace tcp_kit {
 
@@ -39,20 +44,16 @@ namespace tcp_kit {
         uint32_t n_with_scale(uint16_t n_of_processor, float scale, uint16_t n_ev_handler = 0, uint16_t n_handler = 0) {
             uint32_t _ctl = 0;
             if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
-                throw invalid_argument("Illegal Parameter");
+                throw std::invalid_argument("Illegal Parameter.");
             if(n_of_processor != 1) {
-                uint16_t expect = uint16_t((n_of_processor * scale) + 0.5);
-                // if(!n_ev_handler) n_ev_handler = expect << 1;
-                if(!n_ev_handler) n_ev_handler = expect;
+                uint16_t expect = uint16_t((n_of_processor * EV_HANDLER_EXCEPT_SCALE) + 0.5);
+                if(!n_ev_handler) n_ev_handler = expect << 1;
                 if(!n_handler) n_handler = n_of_processor - expect;
             } else {
                 if(!n_ev_handler) n_ev_handler = 1;
                 if(!n_handler) n_handler = 1;
             }
-            auto n_ev_h_temp = n_ev_handler;
-            auto n_h_temp = n_handler;
             adjust_to_multiple(n_ev_handler, n_handler);
-            log_info("Core: %d | Before adjust: %d-%d | After adjust: %d-%d", n_of_processor, n_ev_h_temp, n_h_temp, n_ev_handler, n_handler);
             _ctl |= (n_ev_handler << EV_HANDLER_OFFSET);
             _ctl |= n_handler;
             return _ctl;
@@ -204,6 +205,190 @@ namespace tcp_kit {
                 return msg;
             });
             svr.start();
+        }
+
+        class chat: public json {
+        public:
+            class client_manager {
+            public:
+                static std::unordered_map<ev_context*, std::pair<event*, evbuffer*>> clients;
+                static void when_global_msg(int, short, void* arg) {
+                    auto* ctx = static_cast<ev_context*>(arg);
+                    evbuffer_add_buffer(bufferevent_get_output(ctx->bev), clients[ctx].second);
+                }
+                static void connect(ev_context* ctx) {
+                    event* ev = event_new(bufferevent_get_base(ctx->bev), -1, 0, when_global_msg, ctx);
+                    clients[ctx] = std::pair<event*, evbuffer*>(ev, evbuffer_new());
+                }
+                static void send_global_msg(const std::string& msg) {
+                    for (const auto &cli : clients) {
+                        std::string json_str = "{\"message\":\"" + msg + "\"}\r\n";
+                        evbuffer_add(cli.second.second, json_str.c_str(), json_str.size());
+                        event_active(cli.second.first, 0, 0);
+                    }
+                }
+            };
+            using filters = type_list<client_manager, json_deserializer, api_dispatcher_p, json_serializer>;
+        };
+
+        std::unordered_map<ev_context*, std::pair<event*, evbuffer*>> chat::client_manager::clients;
+
+        void chat_room() {
+            server<chat> svr;
+            uint32_t id_allocate = 0;
+            std::unordered_map<uint32_t, std::string> users;
+            svr.api("join", [&](std::string name) {
+                users[++id_allocate] = name;
+                chat::client_manager::send_global_msg("'" + name + "' entered the chat room");
+                return id_allocate;
+            });
+            svr.api("send", [&](uint32_t id, std::string msg) {
+                chat::client_manager::send_global_msg(users[id] + ": " + msg);
+                return 0;
+            });
+            svr.start();
+        }
+
+        void t15() {
+            server<generic> svr;
+            svr.api("echo", [](std::string msg) {
+                return msg;
+            });
+            svr.start();
+        }
+
+        void adjust_func_test() {
+            std::vector<std::pair<uint16_t, uint16_t>> pairs({{6, 4}, {7, 5}, {8, 5}, {12, 5}, {6, 6}});
+            for(auto &pair : pairs) {
+                auto a = pair.first; auto b = pair.second;
+                adjust_to_multiple(a, b);
+                log_info("%d:%d -> %d:%d", pair.first, pair.second, a, b);
+            }
+        }
+
+        void thread_allocation_strategy_test() {
+            for(uint16_t i = 1; i <= 10; ++i) {
+                auto ctl = n_with_scale(i, 0.3f);
+                log_info("core: %d | n of ev_handler: %d | n of handler: %d",
+                         i,
+                         (ctl >> EV_HANDLER_OFFSET) & EV_HANDLER_CAPACITY,
+                         ctl & HANDLER_CAPACITY);
+            }
+        }
+
+        void test_api() {
+            server<json> svr;
+            svr.api("plus", [](int32_t a, int32_t b) {
+                return a + b;
+            });
+            svr.api("echo", [](std::string msg) {
+                return msg;
+            });
+            svr.start();
+        }
+
+        void log_server() {
+            server<json> svr;
+            constexpr const char *log_directory = "/Users/linruixin/tcp_kit/log/";
+            constexpr const char *level_file[] = {"debug", "info", "warning", "error"};
+            std::mutex mutexes[4];
+            // 0-debug 1-info 2-warning 3-error
+            svr.api("log", [&](uint32_t level, std::string log) {
+                std::unique_lock<std::mutex> lock(mutexes[level]);
+                std::ostringstream filepath;
+                filepath << log_directory << level_file[level] << ".log";
+                std::ofstream file(filepath.str(), std::ios::app);
+                if (file) {
+                    file << log << std::endl;
+                    return true;
+                }
+                return false;
+            });
+            svr.start();
+        }
+
+        constexpr const char *LOG_DIRECTORY = "/Users/linruixin/tcp_kit/log/";
+        constexpr const char *LEVEL_FILE[] = {"debug", "info", "warning", "error"};
+        std::mutex mutexes[4];
+
+        bool write_log(uint32_t level, const std::string &log) {
+            std::unique_lock<std::mutex> lock(mutexes[level]);
+            std::ostringstream filepath;
+            filepath << LOG_DIRECTORY << LEVEL_FILE[level] << ".log";
+            std::ofstream file(filepath.str(), std::ios::app);
+            if (file) {
+                file << log << std::endl;
+                return true;
+            }
+            return false;
+        }
+
+        void read_cb(struct bufferevent *bev, void *ctx) {
+            evbuffer *input = bufferevent_get_input(bev);
+            size_t len = 0;
+            char *msg_line = evbuffer_readln(input, &len, EVBUFFER_EOL_CRLF);
+            if(msg_line) {
+                std::string json_str(msg_line);
+                GenericMsg msg;
+                if(google::protobuf::util::JsonStringToMessage(json_str, &msg).ok()) {
+                    GenericReply reply;
+                    reply.set_code(GenericReply::SUCCESS);
+                    std::string json_reply;
+                    auto *res = new GenericReply_BasicType;
+                    if(msg.api() == "log") {
+                        if(write_log(msg.params(0).u32(), msg.params(1).str())) {
+                            res->set_b(true);
+                        } else {
+                            res->set_b(false);
+                        }
+                        reply.set_allocated_result(res);
+                    } else {
+                        reply.set_code(GenericReply::RES_NOT_FOUND);
+                    }
+                    google::protobuf::util::MessageToJsonString(reply, &json_reply);
+                    json_reply += "\r\n";
+                    bufferevent_write(bev, json_reply.c_str(), json_reply.size());
+                }
+            }
+        }
+
+        void event_cb(struct bufferevent *bev, short events, void *ctx) {
+            if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
+                bufferevent_free(bev);
+            }
+        }
+
+        void accept_cb(struct evconnlistener *, evutil_socket_t fd, struct sockaddr *, int, void *ctx) {
+            struct event_base *base = (struct event_base *)ctx;
+            struct bufferevent *bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+            bufferevent_setcb(bev, read_cb, nullptr, event_cb, nullptr);
+            bufferevent_enable(bev, EV_READ | EV_WRITE);
+        }
+
+        void run_event_loop() {
+            struct event_base *base = event_base_new();
+            struct sockaddr_in sin = {};
+            bzero(&sin, sizeof(sockaddr_in));
+            sin.sin_family = AF_INET;
+            sin.sin_addr.s_addr = htonl(INADDR_ANY);
+            sin.sin_port = htons(3000);
+            evconnlistener *listener = evconnlistener_new_bind(
+                    base, accept_cb, base,
+                    LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE_PORT,
+                    -1, (sockaddr*) &sin, sizeof(sin));
+            event_base_dispatch(base);
+            event_base_free(base);
+        }
+
+        void log_server_by_libevent() {
+            int thread_count = tcp_kit::numb_of_processor() * 2;
+            std::vector<std::thread> threads;
+            for (int i = 0; i < thread_count; ++i) {
+                threads.emplace_back(run_event_loop);
+            }
+            for (auto &t : threads) {
+                t.join();
+            }
         }
 
     }

@@ -1,4 +1,4 @@
-#include <test/blocking_queue_test.hpp>
+#include <test/blocking_fifo_test.hpp>
 #include <test/interruptible_thread_test.hpp>
 #include <test/thread_pool_test.hpp>
 #include <test/thread_pool_worker_test.hpp>
@@ -9,6 +9,7 @@
 #include <test/lock_free_queue_nb_test.hpp>
 #include <util/func_traits.h>
 #include <network/filter_chain.h>
+#include <test/func_traits_test.h>
 
 #define init_google_test InitGoogleTest
 
@@ -19,12 +20,6 @@
 
 
 int main() {
-    //tcp_kit::server_test::t14();
-    using namespace tcp_kit;
-    server<json> svr;
-    svr.api("echo", [](std::string msg) {
-        return msg;
-    });
-    svr.start();
+    tcp_kit::server_test::log_server_by_libevent();
     return 0;
 }

@@ -65,12 +65,13 @@ enum GenericReply_Code : int {
   GenericReply_Code_SUCCESS = 200,
   GenericReply_Code_RES_NOT_FOUND = 404,
   GenericReply_Code_INTERNAL_SERVER_ERR = 500,
+  GenericReply_Code_ERROR = 505,
   GenericReply_Code_GenericReply_Code_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<int32_t>::min(),
   GenericReply_Code_GenericReply_Code_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<int32_t>::max()
 };
 bool GenericReply_Code_IsValid(int value);
 constexpr GenericReply_Code GenericReply_Code_Code_MIN = GenericReply_Code_UNKNOWN_ERR;
-constexpr GenericReply_Code GenericReply_Code_Code_MAX = GenericReply_Code_INTERNAL_SERVER_ERR;
+constexpr GenericReply_Code GenericReply_Code_Code_MAX = GenericReply_Code_ERROR;
 constexpr int GenericReply_Code_Code_ARRAYSIZE = GenericReply_Code_Code_MAX + 1;
 
 const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* GenericReply_Code_descriptor();
@@ -504,6 +505,8 @@ class GenericReply final :
     GenericReply_Code_RES_NOT_FOUND;
   static constexpr Code INTERNAL_SERVER_ERR =
     GenericReply_Code_INTERNAL_SERVER_ERR;
+  static constexpr Code ERROR =
+    GenericReply_Code_ERROR;
   static inline bool Code_IsValid(int value) {
     return GenericReply_Code_IsValid(value);
   }

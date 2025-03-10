@@ -16,9 +16,7 @@ namespace tcp_kit {
     void server_base::wait_at_least(uint32_t rs) {
         std::unique_lock<std::mutex> lock(_mutex);
         while(!run_state_at_least(rs)) {
-            interruption_point();
             interruptible_wait(_state, lock);
-            interruption_point();
         }
     }
 
@@ -84,7 +82,6 @@ namespace tcp_kit {
             }
         }
     }
-
 
     // std::unique_ptr<evbuffer_holder> ev_handler_base::call_process_filters(ev_context *ctx) {
     //     auto holder = std::make_unique<evbuffer_holder>(bufferevent_get_input(ctx->bev));

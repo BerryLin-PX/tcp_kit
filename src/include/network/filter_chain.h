@@ -71,11 +71,10 @@ namespace tcp_kit {
         using type = typename std::tuple_element<1, tp>::type;
     };
 
-
-    // 检查 T 是否有静态函数 void connect(ev_context*);
     template<typename T, typename = void>
     struct check_connect : std::false_type {};
 
+    // 检查 T 是否有静态函数 void connect(ev_context*);
     template<typename T>
     struct check_connect<T, void_t<decltype(T::connect)>> : std::is_same<decltype(T::connect), void(ev_context*)> {};
 

@@ -337,6 +337,7 @@ namespace tcp_kit {
 
     void thread_pool::reject(runnable task) {
         // TODO
+        // throw std::runtime_error("The thread pool no longer receives tasks");
     }
 
     void thread_pool::advance_run_state(uint32_t target_state) {

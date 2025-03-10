@@ -21,10 +21,11 @@ message GenericReply {
     }
 
     enum Code {
-        UNKNOWN_ERR = 0;
-        SUCCESS = 200;
-        RES_NOT_FOUND = 404;
+        UNKNOWN_ERR         = 0;
+        SUCCESS             = 200;
+        RES_NOT_FOUND       = 404;
         INTERNAL_SERVER_ERR = 500;
+        ERROR               = 505;
     }
 
     Code code = 1;

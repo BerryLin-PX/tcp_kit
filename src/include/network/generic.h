@@ -20,8 +20,10 @@ namespace tcp_kit {
     // 作为 server 的通用协议实现
     class generic {
     public:
+        class protobuf_deserializer;
+        class protobuf_serializer;
 
-        using filters = type_list<api_dispatcher_p>;
+        using filters = type_list<protobuf_deserializer, api_dispatcher_p, protobuf_serializer>;
 
         template<uint16_t PORT>
         class ev_handler: public ev_handler_base {
@@ -29,28 +31,29 @@ namespace tcp_kit {
             ev_handler();
             ~ev_handler();
 
-            static void listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg);
+            static void listener_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg);
             static void read_callback(bufferevent *bev, void *arg);
             static void write_callback(bufferevent *bev, void *arg);
             static void event_callback(bufferevent *bev, short what, void *arg);
-            static void process_callback(evutil_socket_t, short, void * arg);
+            static void process_callback(evutil_socket_t, short, void *arg);
+            static void process_error_callback(evutil_socket_t, short, void *arg);
 
-            static msg_context* msg_context_new(ev_context* ctx, char* msg_line, const size_t in_len);
+            static msg_context* msg_context_new(ev_context *ctx, char *msg_line, const size_t in_len);
 
-            static void when_error(ev_context* ctx);
-            static bool try_close(ev_context* ctx);
-            static void terminate(ev_context* ctx);
-            static bool try_free_ctx(ev_context* ctx);
-            static void free_msg_ctx(msg_context* ctx);
+             static void when_error(ev_context *ctx);
+             static bool try_close(ev_context *ctx);
+             static void terminate(ev_context *ctx);
+             static bool try_free_ctx(ev_context *ctx);
+            static void msg_ctx_free(msg_context *ctx);
 
         protected:
-            server<generic, PORT>* _server;
-            event_base*            _ev_base;
+            server<generic, PORT> *_server;
+            event_base            *_ev_base;
             std::mutex             _mutex;
-            evconnlistener*        _evc;
+            evconnlistener        *_evc;
             size_t                 _next;
 
-            void init(server_base* server_ptr) override;
+            void init(server_base *server_ptr) override;
             void run() override;
             inline handler_base* next();
         };
@@ -60,7 +63,7 @@ namespace tcp_kit {
             handler() = default;
 
         protected:
-            void init(server_base* server_ptr) override;
+            void init(server_base *server_ptr) override;
             void run() override;
             inline msg_context* pop();
 
@@ -69,34 +72,45 @@ namespace tcp_kit {
         template<uint16_t PORT>
         class api_dispatcher {
         public:
-            static std::unique_ptr<GenericReply> process(msg_context* ctx, std::unique_ptr<GenericMsg> msg);
+            static std::unique_ptr<GenericReply> process(msg_context *ctx, std::unique_ptr<GenericMsg> msg);
 
             template<typename Processor>
-            static void api(const std::string& id, Processor prcs);
+            static void api(const std::string &id, Processor prcs);
 
             template<typename T>
-            static std::unique_ptr<GenericReply> serialize(T& data);
+            static std::unique_ptr<GenericReply> serialize(T &data);
 
             template<typename Tuple>
-            static Tuple deserialize(std::unique_ptr<GenericMsg>&);
+            static Tuple deserialize(std::unique_ptr<GenericMsg> &);
 
         private:
             using map_t = std::unordered_map<std::string , std::function<std::unique_ptr<GenericReply>(std::unique_ptr<GenericMsg>)>>;
             static map_t _api_map;
 
         };
+
+        class protobuf_deserializer {
+        public:
+            static std::unique_ptr<GenericMsg> process(msg_context *ctx, std::unique_ptr<msg_buffer> input);
+        };
+
+        class protobuf_serializer {
+        public:
+            static std::unique_ptr<msg_buffer> process(msg_context *ctx, std::unique_ptr<GenericReply> input);
+        };
+
     };
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::listener_callback(evconnlistener* listener, socket_t fd, sockaddr* address, int socklen, void* arg) {
-        generic::ev_handler<PORT>* ev_handler_ = static_cast<generic::ev_handler<PORT>*>(arg);
-        bufferevent* bev = bufferevent_socket_new(ev_handler_->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
+    void generic::ev_handler<PORT>::listener_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg) {
+        generic::ev_handler<PORT> *ev_handler_ = static_cast<generic::ev_handler<PORT> *>(arg);
+        bufferevent *bev = bufferevent_socket_new(ev_handler_->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         if(!bev) {
             log_error("Failed to allocate the bufferevent");
             bufferevent_free(bev);
             return;
         }
-        ev_context* ctx = new ev_context{{0, ev_context::CONNECTED, 0}, fd, address,
+        ev_context *ctx = new ev_context{{0, ev_context::CONNECTED, 0}, fd, address,
                                          socklen, ev_handler_, ev_handler_->next(), bev};
         try {
             ev_handler_->call_conn_filters(ctx);
@@ -106,9 +120,9 @@ namespace tcp_kit {
                 bufferevent_setcb(ctx->bev, read_callback, write_callback, event_callback, ctx);
                 ctx->ctl.state = ev_context::ACTIVE;
             } else {
-                throw generic_error<CONS_BEV_FAILED>("Failed to enable the events of bufferevent");
+                throw generic_error<CONS_BEV_FAILED>("Failed to enable the read/write events of bufferevent");
             }
-        } catch (const std::exception& err) {
+        } catch (const std::exception &err) {
             log_error(err.what());
             when_error(ctx);
             try_free_ctx(ctx);
@@ -116,89 +130,107 @@ namespace tcp_kit {
     }
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::read_callback(bufferevent* bev, void* arg) {
-        ev_context* ctx = static_cast<ev_context*>(arg);
-        msg_context* msg_ctx;
+    void generic::ev_handler<PORT>::read_callback(bufferevent *bev, void *arg) {
+        ev_context *ctx = static_cast<ev_context *>(arg);
+        msg_context *msg_ctx;
         try {
             if(ctx->ctl.state == ev_context::ACTIVE) {
-                evbuffer* input = bufferevent_get_input(ctx->bev);
+                evbuffer *input = bufferevent_get_input(ctx->bev);
                 size_t len = 0;
-                char* msg_line = evbuffer_readln(input, &len, EVBUFFER_EOL_CRLF);
-                log_debug("Get a message: %s", msg_line);
+                char *msg_line = evbuffer_readln(input, &len, EVBUFFER_EOL_CRLF);
                 if(msg_line) {
                     msg_ctx = msg_context_new(ctx, msg_line, len);
                     ctx->handler->msg_queue->push(msg_ctx);
+                    ++ctx->ctl.n_async;
                 }
             } else {
                 try_free_ctx(ctx);
             }
-        } catch (const std::exception& err) {
+        } catch (const std::exception &err) {
             log_error(err.what());
             if(msg_ctx)
-                free_msg_ctx(msg_ctx);
+                msg_ctx_free(msg_ctx);
             when_error(ctx);
             try_free_ctx(ctx);
         }
     }
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::write_callback(bufferevent* bev, void* arg) {
+    void generic::ev_handler<PORT>::write_callback(bufferevent *bev, void *arg) {
 
     }
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::event_callback(bufferevent* bev, short what, void* arg) {
-
-    }
-
-    template<uint16_t PORT>
-    void generic::ev_handler<PORT>::process_callback(int, short, void* arg) {
-        auto pair = static_cast<std::pair<ev_context*, msg_context*>*>(arg);
-        ev_context* ctx = pair->first;
-        msg_context* msg_ctx = pair->second;
-        delete pair;
-        --ctx->ctl.n_async;
-        if(ctx->ctl.state == ev_context::ACTIVE) {
-            evbuffer_add_reference(bufferevent_get_output(ctx->bev), msg_ctx->out, msg_ctx->out_len,
-                                   [](const void *data, size_t len, void *arg) { free(static_cast<char*>(arg)); },
-                                   msg_ctx->out);
-            msg_ctx->out = nullptr;
-            free_msg_ctx(msg_ctx);
-        } else {
-            free_msg_ctx(msg_ctx);
+    void generic::ev_handler<PORT>::event_callback(bufferevent *bev, short what, void *arg) {
+        ev_context *ctx = static_cast<ev_context *>(arg);
+        if(what & BEV_EVENT_EOF) {
+            try_free_ctx(ctx);
+        } else if(what & BEV_EVENT_ERROR) {
+            when_error(ctx);
             try_free_ctx(ctx);
         }
     }
 
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::process_callback(int, short, void *arg) {
+        auto pair = static_cast<std::pair<ev_context*, msg_context*>*>(arg);
+        ev_context *ctx = pair->first;
+        msg_context *msg_ctx = pair->second;
+        delete pair;
+        --ctx->ctl.n_async;
+        if(ctx->ctl.state == ev_context::ACTIVE) {
+            evbuffer_add_reference(bufferevent_get_output(ctx->bev), msg_ctx->out, msg_ctx->out_len,
+                                   [](const void *data, size_t len, void *arg) { free(static_cast<char *>(arg)); },
+                                   msg_ctx->out);
+            msg_ctx->out = nullptr;
+            msg_ctx_free(msg_ctx);
+        } else {
+            msg_ctx_free(msg_ctx);
+            try_free_ctx(ctx);
+        }
+    }
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::process_error_callback(int, short, void *arg) {
+        auto pair = static_cast<std::pair<ev_context *, msg_context *> *>(arg);
+        ev_context *ctx = pair->first;
+        msg_context *msg_ctx = pair->second;
+        delete pair;
+        --ctx->ctl.n_async;
+        msg_ctx_free(msg_ctx);
+        when_error(ctx);
+        try_free_ctx(ctx);
+    }
+
     template <uint16_t PORT>
-    msg_context* generic::ev_handler<PORT>::msg_context_new(ev_context* ctx, char* msg_line, const size_t in_len) {
-        event_base* base = static_cast<ev_handler<PORT>*>(ctx->ev_handler)->_ev_base;
-        msg_context* msg_ctx = new msg_context{msg_line, in_len, nullptr, 0, nullptr, false, nullptr};
-        auto ctx_pair = new std::pair<ev_context*, msg_context*>(ctx, msg_ctx);
+    msg_context* generic::ev_handler<PORT>::msg_context_new(ev_context *ctx, char *msg_line, const size_t in_len) {
+        event_base *base = static_cast<ev_handler<PORT> *>(ctx->ev_handler)->_ev_base;
+        msg_context *msg_ctx = new msg_context{msg_line, in_len, nullptr, 0, false, nullptr, nullptr, false};
+        auto ctx_pair = new std::pair<ev_context *, msg_context *>(ctx, msg_ctx);
         msg_ctx->done_ev = event_new(base, -1, 0, process_callback, ctx_pair);
-        if(msg_ctx->done_ev) {
-            ++ctx->ctl.n_async;
+        msg_ctx->error_ev = event_new(base, -1, 0, process_error_callback, ctx_pair);
+        if(msg_ctx->done_ev && msg_ctx->error_ev) {
             return msg_ctx;
         } else {
             delete ctx_pair;
-            free_msg_ctx(msg_ctx);
+            msg_ctx_free(msg_ctx);
             throw generic_error<CONS_EVENT_FAILED>("Failed to construct the done event");
         }
     }
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::when_error(ev_context* ctx) {
+    void generic::ev_handler<PORT>::when_error(ev_context *ctx) {
         ctx->ctl.error = true;
-        // TODO
+        const char *err_msg = "An error_flag occurred, the connection will be closed shortly.\n";
+        bufferevent_write(ctx->bev, err_msg, strlen(err_msg));
     }
 
     template<uint16_t PORT>
-    bool generic::ev_handler<PORT>::try_close(ev_context* ctx) {
+    bool generic::ev_handler<PORT>::try_close(ev_context *ctx) {
         if(ctx->ctl.state >= ev_context::CLOSED)
             return true;
         ctx->ctl.state = ev_context::CLOSING;
         if(ctx->ctl.n_async == 0) {
-            // TODO: 关闭连接
             bufferevent_free(ctx->bev);
             ctx->bev = nullptr;
             ctx->ctl.state = ev_context::CLOSED;
@@ -223,11 +255,11 @@ namespace tcp_kit {
     }
 
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::free_msg_ctx(msg_context* ctx) {
-        if(ctx->in)
-            free(ctx->in);
-        if(ctx->done_ev)
-            event_free(ctx->done_ev);
+    void generic::ev_handler<PORT>::msg_ctx_free(msg_context* ctx) {
+        if(ctx->in) free(ctx->in);
+        if(ctx->out) free(ctx->out);
+        if(ctx->done_ev) event_free(ctx->done_ev);
+        if(ctx->error_ev) event_free(ctx->error_ev);
         delete ctx;
     }
 
@@ -239,6 +271,7 @@ namespace tcp_kit {
     void generic::ev_handler<PORT>::init(server_base* server_ptr) {
         _server = static_cast<server<generic, PORT>*>(server_ptr);
         sockaddr_in sin = socket_address(PORT);
+        // TODO: 多线程复用一个端口返回 NULL
         _evc = evconnlistener_new_bind(
                 _ev_base, &generic::ev_handler<PORT>::listener_callback, this,
                 LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE_PORT,
@@ -271,8 +304,14 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     std::unique_ptr<GenericReply> generic::api_dispatcher<PORT>::process(msg_context* ctx, std::unique_ptr<GenericMsg> msg) {
-        log_debug("Api dispatcher");
-        return api_dispatcher<PORT>::_api_map.find(msg->api())->second(std::move(msg));
+        auto it = api_dispatcher<PORT>::_api_map.find(msg->api());
+        if(it != api_dispatcher<PORT>::_api_map.end()) {
+            return it->second(std::move(msg));
+        } else {
+            std::unique_ptr<GenericReply> reply = std::make_unique<GenericReply>();
+            reply->set_code(GenericReply::RES_NOT_FOUND);
+            return reply;
+        }
     }
 
     template<uint16_t PORT>
@@ -281,11 +320,21 @@ namespace tcp_kit {
         using result_t = typename func_traits<Processor>::result_type;
         using args_t = typename func_traits<Processor>::args_type;
         api_dispatcher<PORT>::_api_map[id] = [prcs](std::unique_ptr<GenericMsg> msg) -> std::unique_ptr<GenericReply> {
-            args_t args = deserialize<args_t>(msg);
-            result_t res = call(prcs, move(args));
-            return serialize(res);
+            try {
+                args_t args = deserialize<args_t>(msg);
+                result_t res = call(prcs, move(args));
+                return serialize(res);
+            } catch (const std::exception &err) {
+                log_error(err.what());
+                std::unique_ptr<GenericReply> reply = std::make_unique<GenericReply>();
+                reply->set_code(GenericReply::ERROR);
+                reply->set_msg(err.what());
+                return reply;
+            }
         };
     }
+
+    // -----------------------------------------------------------------------------------------------------------------
 
     // 推断类型 T 是否与 Any... 中任意类型匹配
     // match_any<bool, int, bool, double, float>::value -> true

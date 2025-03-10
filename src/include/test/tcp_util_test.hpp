@@ -325,7 +325,7 @@ namespace tcp_kit {
 //            size_t len = evbuffer_get_length(input);
 //            char *data = (char *)malloc(len + 1);
 //            if (!data) {
-//                std::cerr << "Memory allocation error" << std::endl;
+//                std::cerr << "Memory allocation error_flag" << std::endl;
 //                return;
 //            }
 //

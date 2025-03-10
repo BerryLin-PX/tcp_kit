@@ -6,12 +6,14 @@ namespace tcp_kit {
     std::unique_ptr<GenericMsg> json::json_deserializer::process(msg_context *ctx, std::unique_ptr<msg_buffer> input) {
         std::unique_ptr<GenericMsg> generic_msg(new GenericMsg);
         std::string json_str(input->ptr);
-        google::protobuf::util::Status status = google::protobuf::util::JsonStringToMessage(json_str, generic_msg.get());
-        return generic_msg;
+        if(google::protobuf::util::JsonStringToMessage(json_str, generic_msg.get()).ok()) {
+            return generic_msg;
+        } else {
+            throw generic_error<ILLEGALITY_ARGS>("Unable to parse the message to GenericMsg");
+        }
     }
 
     std::unique_ptr<msg_buffer> json::json_serializer::process(msg_context *ctx, std::unique_ptr<GenericReply> reply) {
-        log_debug("Output processor");
         std::string json_string;
         GenericReply reply_c(*reply);
         google::protobuf::util::MessageToJsonString(reply_c, &json_string);

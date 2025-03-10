@@ -61,7 +61,7 @@ namespace tcp_kit {
     public:
         interrupt_flag* flag;
 
-        enum state { NEW, ALIVE, TERMINATED };
+        enum state { NEW, ALIVE, BLOCKING, TERMINATED, ERROR };
         explicit interruptible_thread(std::function<void()> task = nullptr);
         void set_runnable(std::function<void()> task);
         void start();
