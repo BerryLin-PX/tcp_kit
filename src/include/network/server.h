@@ -82,6 +82,14 @@ namespace tcp_kit {
 
     };
 
+#ifdef __APPLE__
+    struct conn_info {
+        socket_t          fd;
+        sockaddr         *address;
+        int               socklen;
+    };
+#endif
+
     // ev_handler_base 与 handler_base 作为 Event Handler 与 Handler 的基本实现
     // 由于它们始终被 server 调度, 所以它们在 bind_and_run() 中与 server 进行状态同步
     // 请确保在派生类中的构造函数是无参的
@@ -90,19 +98,25 @@ namespace tcp_kit {
     public:
         size_t n_handler;
         std::vector<handler_base*> handlers;
-
         ev_handler_base();
-
+#ifdef __APPLE__
+        event      *accept_ev;
+        conn_info   c_info;
+#endif
         void bind_and_run(server_base* server_ptr);
         // 在线程创建之初被调度, 此时 server 状态为 NEW, 派生类在此处进行初始化
+#ifdef __APPLE__
+        virtual event *init(server_base* server_ptr) = 0;
+#elif __linux__
         virtual void init(server_base* server_ptr) = 0;
+#endif
         // 在 server 进入 RUNNING 状态后被调度, 派生类在此处做任务处理
         virtual void run() = 0;
 
         virtual ~ev_handler_base() = default;
 
     protected:
-        server_base* _server_base;
+        server_base *_server_base;
         std::shared_ptr<filter_chain> _filters;
 
         void call_conn_filters(struct ev_context *ctx);
@@ -199,6 +213,11 @@ namespace tcp_kit {
         friend ev_handler_t;
         friend handler_t;
 
+#ifdef __APPLE__
+        event_base                     *_ev_base;
+        evconnlistener                 *_evc;
+        size_t                          _index;
+#endif
         std::atomic<uint32_t>          _ready_threads;
         std::unique_ptr<thread_pool>   _threads;
         std::vector<ev_handler_t>      _ev_handlers;
@@ -206,6 +225,11 @@ namespace tcp_kit {
 
         void try_ready() override;
         virtual void when_ready();
+
+#ifdef __APPLE__
+        static void accept_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg);
+        ev_handler_t *next();
+#endif
 
         inline bool is_multiple(uint16_t a, uint16_t b);
         void adjust_to_multiple(uint16_t& a, uint16_t& b);
@@ -216,6 +240,12 @@ namespace tcp_kit {
 
     template <typename Protocols, uint16_t PORT>
     server<Protocols,PORT>::server(uint16_t n_ev_handler, uint16_t n_handler): _ready_threads(0), server_base(make_filter_chain(filter_types{})) {
+        evthread_use_pthreads();
+#ifdef __APPLE__
+        _ev_base = event_base_new();
+        _evc = nullptr;
+        _index = 0;
+#endif
         if(n_ev_handler > EV_HANDLER_CAPACITY || n_handler > HANDLER_CAPACITY)
             throw std::invalid_argument("Illegal Parameter.");
         _ctl |= NEW;
@@ -238,7 +268,6 @@ namespace tcp_kit {
     // 30-37
     template <typename Protocols, uint16_t PORT>
     void server<Protocols, PORT>::start() {
-        evthread_use_pthreads();
         uint16_t n_ev_handler = n_of_ev_handler();
         uint16_t n_handler = n_of_handler();
         uint32_t n_thread = n_ev_handler + n_handler;
@@ -272,9 +301,16 @@ namespace tcp_kit {
             }
         }
         wait_at_least(READY);
+#ifdef __APPLE__
+        sockaddr_in sin = socket_address(PORT);
+        _evc = evconnlistener_new_bind(
+                _ev_base, accept_callback, this, LEV_OPT_CLOSE_ON_FREE,
+                -1, (sockaddr*) &sin, sizeof(sin));
+#endif
         when_ready();
         trans_to(RUNNING);
         log_info("The server is started on port: %d", PORT);
+        event_base_dispatch(_ev_base);
         wait_at_least(SHUTDOWN);
     }
 
@@ -291,8 +327,27 @@ namespace tcp_kit {
         }
     }
 
-    template <typename Protocols, uint16_t PORT>
+    template<typename Protocols, uint16_t PORT>
     void server<Protocols, PORT>::when_ready() { }
+
+#ifdef __APPLE__
+    template<typename Protocols, uint16_t PORT>
+    void server<Protocols, PORT>::accept_callback(evconnlistener *listener, int fd,
+                                                  sockaddr *address, int socklen, void *arg) {
+        auto *server_ = static_cast<server<Protocols, PORT>*>(arg);
+        ev_handler_t *ev_handler = server_->next();
+        conn_info *c_info_ = &ev_handler->c_info;
+        c_info_->fd = fd;
+        c_info_->address = address;
+        c_info_->socklen = socklen;
+        event_active(ev_handler->accept_ev, 0, 0);
+    }
+
+    template<typename Protocols, uint16_t PORT>
+    typename server<Protocols, PORT>::ev_handler_t *server<Protocols, PORT>::next() {
+        return &_ev_handlers[_index++ % _ev_handlers.size()];
+    }
+#endif
 
     template <typename Protocols, uint16_t PORT>
     bool server<Protocols, PORT>::is_multiple(uint16_t a, uint16_t b) {

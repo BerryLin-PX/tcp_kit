@@ -42,13 +42,13 @@ namespace tcp_kit {
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    ev_handler_base::ev_handler_base(): n_handler(0) { }
+    ev_handler_base::ev_handler_base(): n_handler(0), accept_ev(nullptr) { }
 
     void ev_handler_base::bind_and_run(server_base* server_ptr) {
         assert(server_ptr);
         _server_base = server_ptr;
         _filters = _server_base->_filters;
-        init(server_ptr);
+        accept_ev = init(server_ptr);
         _server_base->try_ready();
         _server_base->wait_at_least(server_base::RUNNING);
         //log_debug("Event handler_base running...");

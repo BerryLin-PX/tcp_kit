@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <fstream>
 #include <google/protobuf/util/json_util.h>
+#include <thread>
+#include <random>
 
 namespace tcp_kit {
 
@@ -287,13 +289,21 @@ namespace tcp_kit {
             svr.start();
         }
 
+        void random_sleep() {
+            static thread_local std::mt19937_64 rng(std::random_device{}());  // 线程局部随机数生成器
+            std::uniform_int_distribution<int> dist(500, 1000);
+            std::this_thread::sleep_for(std::chrono::microseconds(dist(rng))); // 随机休眠
+        }
+
         void log_server() {
             server<json> svr;
             constexpr const char *log_directory = "/Users/linruixin/tcp_kit/log/";
             constexpr const char *level_file[] = {"debug", "info", "warning", "error"};
+            std::atomic<uint32_t> count{0};
             std::mutex mutexes[4];
             // 0-debug 1-info 2-warning 3-error
             svr.api("log", [&](uint32_t level, std::string log) {
+                random_sleep();
                 std::unique_lock<std::mutex> lock(mutexes[level]);
                 std::ostringstream filepath;
                 filepath << log_directory << level_file[level] << ".log";
@@ -312,6 +322,7 @@ namespace tcp_kit {
         std::mutex mutexes[4];
 
         bool write_log(uint32_t level, const std::string &log) {
+            random_sleep();
             std::unique_lock<std::mutex> lock(mutexes[level]);
             std::ostringstream filepath;
             filepath << LOG_DIRECTORY << LEVEL_FILE[level] << ".log";
@@ -323,24 +334,29 @@ namespace tcp_kit {
             return false;
         }
 
+        struct worker_context {
+            struct event_base *base;
+            struct event *notify_event;
+            evutil_socket_t fd;
+        };
+
+        std::vector<worker_context> workers;
+        std::atomic<int> next_worker_index{0};
+
         void read_cb(struct bufferevent *bev, void *ctx) {
             evbuffer *input = bufferevent_get_input(bev);
             size_t len = 0;
             char *msg_line = evbuffer_readln(input, &len, EVBUFFER_EOL_CRLF);
-            if(msg_line) {
+            if (msg_line) {
                 std::string json_str(msg_line);
                 GenericMsg msg;
-                if(google::protobuf::util::JsonStringToMessage(json_str, &msg).ok()) {
+                if (google::protobuf::util::JsonStringToMessage(json_str, &msg).ok()) {
                     GenericReply reply;
                     reply.set_code(GenericReply::SUCCESS);
                     std::string json_reply;
                     auto *res = new GenericReply_BasicType;
-                    if(msg.api() == "log") {
-                        if(write_log(msg.params(0).u32(), msg.params(1).str())) {
-                            res->set_b(true);
-                        } else {
-                            res->set_b(false);
-                        }
+                    if (msg.api() == "log") {
+                        res->set_b(write_log(msg.params(0).u32(), msg.params(1).str()));
                         reply.set_allocated_result(res);
                     } else {
                         reply.set_code(GenericReply::RES_NOT_FOUND);
@@ -358,14 +374,30 @@ namespace tcp_kit {
             }
         }
 
-        void accept_cb(struct evconnlistener *, evutil_socket_t fd, struct sockaddr *, int, void *ctx) {
-            struct event_base *base = (struct event_base *)ctx;
-            struct bufferevent *bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+        void worker_cb(evutil_socket_t fd, short, void *ctx) {
+            worker_context *worker = static_cast<worker_context *>(ctx);
+            struct bufferevent *bev = bufferevent_socket_new(worker->base, worker->fd, BEV_OPT_CLOSE_ON_FREE);
             bufferevent_setcb(bev, read_cb, nullptr, event_cb, nullptr);
             bufferevent_enable(bev, EV_READ | EV_WRITE);
         }
 
-        void run_event_loop() {
+        void accept_cb(struct evconnlistener *, evutil_socket_t fd, struct sockaddr *, int, void *ctx) {
+            int worker_id = next_worker_index.fetch_add(1) % workers.size();
+            workers[worker_id].fd = fd;
+            event_active(workers[worker_id].notify_event, 0, 0);
+        }
+
+        void run_worker(int index) {
+            struct event_base *base = event_base_new();
+            struct event *notify_event = event_new(base, -1, EV_PERSIST, worker_cb, &workers[index]);
+            workers[index] = {base, notify_event};
+            event_add(notify_event, nullptr);
+            event_base_loop(base, EVLOOP_NO_EXIT_ON_EMPTY);
+            event_free(notify_event);
+            event_base_free(base);
+        }
+
+        void run_acceptor() {
             struct event_base *base = event_base_new();
             struct sockaddr_in sin = {};
             bzero(&sin, sizeof(sockaddr_in));
@@ -373,18 +405,22 @@ namespace tcp_kit {
             sin.sin_addr.s_addr = htonl(INADDR_ANY);
             sin.sin_port = htons(3000);
             evconnlistener *listener = evconnlistener_new_bind(
-                    base, accept_cb, base,
+                    base, accept_cb, nullptr,
                     LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE_PORT,
-                    -1, (sockaddr*) &sin, sizeof(sin));
+                    -1, (sockaddr *) &sin, sizeof(sin));
             event_base_dispatch(base);
+            evconnlistener_free(listener);
             event_base_free(base);
         }
 
         void log_server_by_libevent() {
+            evthread_use_pthreads();
             int thread_count = tcp_kit::numb_of_processor() * 2;
+            workers.resize(thread_count - 1);
             std::vector<std::thread> threads;
-            for (int i = 0; i < thread_count; ++i) {
-                threads.emplace_back(run_event_loop);
+            threads.emplace_back(run_acceptor);
+            for (int i = 0; i < thread_count - 1; ++i) {
+                threads.emplace_back(run_worker, i);
             }
             for (auto &t : threads) {
                 t.join();

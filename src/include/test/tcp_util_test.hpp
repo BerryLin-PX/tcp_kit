@@ -444,6 +444,26 @@ namespace tcp_kit {
             event_base_free(base);
         }
 
+        void t8_ev_cb(int, short, void *arg) {
+            log_info("T8 CB");
+        }
+
+        event *ev = nullptr;
+
+        void t8() {
+            evthread_use_pthreads();
+            std::thread t([&]() {
+                auto *base = event_base_new();
+                ev = event_new(base, -1, 0, t8_ev_cb, nullptr);
+                event_base_loop(base, EVLOOP_NO_EXIT_ON_EMPTY);
+                event_base_free(base);
+            });
+            this_thread::sleep_for(chrono::seconds(1));
+            event_active(ev, 0, 0);
+            t.join();
+            log_info("...");
+        }
+
     };
 
 }

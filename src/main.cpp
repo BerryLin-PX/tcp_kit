@@ -21,5 +21,6 @@
 
 int main() {
     tcp_kit::server_test::log_server_by_libevent();
+//    tcp_kit::server_test::log_server();
     return 0;
 }

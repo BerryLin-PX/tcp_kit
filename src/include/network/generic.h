@@ -30,8 +30,10 @@ namespace tcp_kit {
         public:
             ev_handler();
             ~ev_handler();
-
-            static void listener_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg);
+#ifdef __APPLE__
+            static void accept_callback0(evutil_socket_t, short, void *arg);
+#endif
+            static void accept_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg);
             static void read_callback(bufferevent *bev, void *arg);
             static void write_callback(bufferevent *bev, void *arg);
             static void event_callback(bufferevent *bev, short what, void *arg);
@@ -40,20 +42,24 @@ namespace tcp_kit {
 
             static msg_context* msg_context_new(ev_context *ctx, char *msg_line, const size_t in_len);
 
-             static void when_error(ev_context *ctx);
-             static bool try_close(ev_context *ctx);
-             static void terminate(ev_context *ctx);
-             static bool try_free_ctx(ev_context *ctx);
+            static void when_error(ev_context *ctx);
+            static bool try_close(ev_context *ctx);
+            static void terminate(ev_context *ctx);
+            static bool try_free_ctx(ev_context *ctx);
             static void msg_ctx_free(msg_context *ctx);
 
         protected:
             server<generic, PORT> *_server;
             event_base            *_ev_base;
             std::mutex             _mutex;
-            evconnlistener        *_evc;
             size_t                 _next;
-
+#ifdef __APPLE__
+            event                 *_accept_ev;
+            event *init(server_base *server_ptr) override;
+#elif __linux__
+            evconnlistener        *_evc;
             void init(server_base *server_ptr) override;
+#endif
             void run() override;
             inline handler_base* next();
         };
@@ -101,9 +107,19 @@ namespace tcp_kit {
 
     };
 
+#ifdef __APPLE__
     template<uint16_t PORT>
-    void generic::ev_handler<PORT>::listener_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg) {
-        generic::ev_handler<PORT> *ev_handler_ = static_cast<generic::ev_handler<PORT> *>(arg);
+    void generic::ev_handler<PORT>::accept_callback0(int, short, void *arg) {
+        auto *ev_handler_ = static_cast<generic::ev_handler<PORT> *>(arg);
+        conn_info *c_info_ = &ev_handler_->c_info;
+        // TODO: 传 nullptr 可能有问题
+        accept_callback(nullptr, c_info_->fd, c_info_->address, c_info_->socklen, arg);
+    }
+#endif
+
+    template<uint16_t PORT>
+    void generic::ev_handler<PORT>::accept_callback(evconnlistener *listener, socket_t fd, sockaddr *address, int socklen, void *arg) {
+        auto *ev_handler_ = static_cast<generic::ev_handler<PORT> *>(arg);
         bufferevent *bev = bufferevent_socket_new(ev_handler_->_ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         if(!bev) {
             log_error("Failed to allocate the bufferevent");
@@ -131,7 +147,7 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::read_callback(bufferevent *bev, void *arg) {
-        ev_context *ctx = static_cast<ev_context *>(arg);
+        auto *ctx = static_cast<ev_context *>(arg);
         msg_context *msg_ctx;
         try {
             if(ctx->ctl.state == ev_context::ACTIVE) {
@@ -162,7 +178,7 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::event_callback(bufferevent *bev, short what, void *arg) {
-        ev_context *ctx = static_cast<ev_context *>(arg);
+        auto *ctx = static_cast<ev_context *>(arg);
         if(what & BEV_EVENT_EOF) {
             try_free_ctx(ctx);
         } else if(what & BEV_EVENT_ERROR) {
@@ -204,7 +220,7 @@ namespace tcp_kit {
 
     template <uint16_t PORT>
     msg_context* generic::ev_handler<PORT>::msg_context_new(ev_context *ctx, char *msg_line, const size_t in_len) {
-        event_base *base = static_cast<ev_handler<PORT> *>(ctx->ev_handler)->_ev_base;
+        auto *base = static_cast<ev_handler<PORT> *>(ctx->ev_handler)->_ev_base;
         msg_context *msg_ctx = new msg_context{msg_line, in_len, nullptr, 0, false, nullptr, nullptr, false};
         auto ctx_pair = new std::pair<ev_context *, msg_context *>(ctx, msg_ctx);
         msg_ctx->done_ev = event_new(base, -1, 0, process_callback, ctx_pair);
@@ -267,20 +283,33 @@ namespace tcp_kit {
     generic::ev_handler<PORT>::ev_handler(): _ev_base(event_base_new()), _next(0) {
     }
 
+#ifdef __APPLE__
+    template<uint16_t PORT>
+    event *generic::ev_handler<PORT>::init(server_base* server_ptr) {
+        _server = static_cast<server<generic, PORT>*>(server_ptr);
+        _accept_ev =  event_new(_ev_base, -1, EV_PERSIST, accept_callback0, this);
+        return _accept_ev;
+    }
+#elif __linux__
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::init(server_base* server_ptr) {
         _server = static_cast<server<generic, PORT>*>(server_ptr);
         sockaddr_in sin = socket_address(PORT);
-        // TODO: 多线程复用一个端口返回 NULL
         _evc = evconnlistener_new_bind(
-                _ev_base, &generic::ev_handler<PORT>::listener_callback, this,
+                _ev_base, &generic::ev_handler<PORT>::accept_callback, this,
                 LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE_PORT,
                 -1, (sockaddr*) &sin, sizeof(sin));
     }
+#endif
+
 
     template<uint16_t PORT>
     void generic::ev_handler<PORT>::run() {
+#ifdef __APPLE__
+        event_base_loop(_ev_base, EVLOOP_NO_EXIT_ON_EMPTY);
+#elif __linux
         event_base_dispatch(_ev_base);
+#endif
     }
 
     template<uint16_t PORT>
@@ -293,7 +322,11 @@ namespace tcp_kit {
 
     template<uint16_t PORT>
     generic::ev_handler<PORT>::~ev_handler() {
+#ifdef __APPLE__
+        event_free(_accept_ev);
+#elif __linux
         evconnlistener_free(_evc);
+#endif
         event_base_free(_ev_base);
     }
 
