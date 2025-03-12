@@ -1,4 +1,5 @@
-#tcp_kit
+# tcp_kit
+
 tcp_kit is a **lightweight, cross-platform** network protocol development kit based on the C++11 standard. It adopts the Reactor event-driven model and supports multithreading and asynchronous I/O operations. This kit is designed to provide developers with:
 
 - 🚀 High-performance network processing: Event loop driven by libevent 
@@ -25,4 +26,6 @@ int main() {
     svr.start();
 }
 ```
+
+Looking forward to the first official release! 🍺
 
