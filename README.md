@@ -17,7 +17,7 @@ tcp_kit is a **lightweight, cross-platform** network protocol development kit ba
 
 #### Clone the Repository
 ```shell
-git clone https://github.com/LinRuiiXin/tcp_kit.git
+git clone https://github.com/BerryLin-PX/tcp_kit.git
 cd tcp_kit
 ```
 #### Install Dependencies
