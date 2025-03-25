@@ -13,14 +13,14 @@ tcp_kit is a **lightweight, cross-platform** network protocol development kit ba
 - Dependencies: libevent 2.1+, Protobuf 3.0+
 - Build System: CMake 2.8+
 
-###🛠 Installation
+### 🛠 Installation
 
-####Clone the Repository
+#### Clone the Repository
 ```shell
 git clone https://github.com/LinRuiiXin/tcp_kit.git
 cd tcp_kit
 ```
-####Install Dependencies
+#### Install Dependencies
    - CentOS
       ```shell
       sudo yum install -y libevent-devel protobuf-devel
@@ -29,7 +29,7 @@ cd tcp_kit
       ```shell
       brew install libevent protobuf
       ```
-####Build tcp_kit
+#### Build tcp_kit
 ```shell
 mkdir build && cd build
 cmake ..
