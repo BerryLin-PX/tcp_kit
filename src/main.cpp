@@ -10,7 +10,7 @@
 #include <util/func_traits.h>
 #include <network/filter_chain.h>
 #include <test/func_traits_test.h>
-
+#include <string>
 #define init_google_test InitGoogleTest
 
 //int main() {
