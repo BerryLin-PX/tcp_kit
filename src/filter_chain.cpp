@@ -8,6 +8,10 @@ namespace tcp_kit {
 
     }
 
+    void empty_close_chain(ev_context* ctx) {
+
+    }
+
     std::unique_ptr<msg_buffer> empty_process_chain(msg_context* ctx, std::unique_ptr<msg_buffer> in) {
         return in;
     }

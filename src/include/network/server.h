@@ -121,6 +121,7 @@ namespace tcp_kit {
 
         void call_conn_filters(struct ev_context *ctx);
         void register_read_write_filters(struct ev_context *ctx);
+        void call_close_filters(struct ev_context *ctx);
         // std::unique_ptr<evbuffer_holder> call_process_filters(ev_context* ctx);
 
     };
@@ -204,6 +205,10 @@ namespace tcp_kit {
 
         template<typename Identity, typename Processor>
         void api(const Identity& id, Processor prcs);
+
+#ifdef __APPLE__
+        virtual ~server();
+#endif
 
         server(const server&) = delete;
         server(server&&) = delete;
@@ -306,11 +311,16 @@ namespace tcp_kit {
         _evc = evconnlistener_new_bind(
                 _ev_base, accept_callback, this, LEV_OPT_CLOSE_ON_FREE,
                 -1, (sockaddr*) &sin, sizeof(sin));
+        if(!_evc) {
+            log_error("Cannot open the socket of port: %d", PORT);
+            throw std::runtime_error("Server start failed");
+        }
 #endif
         when_ready();
         trans_to(RUNNING);
         log_info("The server is started on port: %d", PORT);
-        event_base_dispatch(_ev_base);
+        event_base_loop(_ev_base, EVLOOP_NO_EXIT_ON_EMPTY);
+        log_info("loop break");
         wait_at_least(SHUTDOWN);
     }
 
@@ -379,6 +389,16 @@ namespace tcp_kit {
             }
         }
     }
+
+#ifdef __APPLE__
+    template <typename Protocols, uint16_t PORT>
+    server<Protocols, PORT>::~server() {
+        if(_evc)
+            evconnlistener_free(_evc);
+        if(_ev_base)
+            event_base_free(_ev_base);
+    }
+#endif
 
     template <typename Protocols, uint16_t PORT>
     uint16_t server<Protocols, PORT>::n_of_ev_handler() {

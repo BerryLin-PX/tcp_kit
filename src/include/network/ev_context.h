@@ -26,16 +26,17 @@ namespace tcp_kit {
 
         control          ctl;
         socket_t         fd;
-        sockaddr*        address;
+        sockaddr        *address;
         int              socklen;
-        ev_handler_base* ev_handler;
+        uint32_t         conn_id;
+        ev_handler_base *ev_handler;
         handler_base*    handler;
         bufferevent*     bev;
 
-        ev_context(const ev_context&) = delete;
-        ev_context(ev_context&&) = delete;
-        ev_context& operator=(const ev_context&) = delete;
-        ev_context& operator=(ev_context&&) = delete;
+        ev_context(const ev_context &) = delete;
+        ev_context(ev_context &&) = delete;
+        ev_context& operator=(const ev_context &) = delete;
+        ev_context& operator=(ev_context &&) = delete;
 
     };
 

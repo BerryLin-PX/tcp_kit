@@ -46,6 +46,8 @@ namespace tcp_kit {
 
     using process_chain  = std::unique_ptr<msg_buffer>(*)(msg_context* ctx, std::unique_ptr<msg_buffer>);
 
+    using close_filter = void (*)(ev_context *);
+
     class filter_chain {
 
     public:
@@ -53,6 +55,7 @@ namespace tcp_kit {
         std::vector<bufferevent_filter_cb> reads;
         std::vector<bufferevent_filter_cb> writes;
         process_chain                      process;
+        close_filter                       closes;
 
         // template<typename... F>
         // static std::shared_ptr<filter_chain> make(type_list<F...>);
@@ -92,6 +95,13 @@ namespace tcp_kit {
     template<typename T>
     struct check_write_filter<T, void_t<decltype(T::write)>> : std::is_same<decltype(T::write), bufferevent_filter_result(evbuffer*, evbuffer*, ev_ssize_t, bufferevent_flush_mode, ev_context*)> {};
 
+    template<typename T, typename = void>
+    struct check_close : std::false_type {};
+
+    // 检查 T 是否有静态函数 void close(ev_context *);
+    template<typename T>
+    struct check_close<T, void_t<decltype(T::close)>> : std::is_same<decltype(T::close), void(ev_context *)> {};
+
     // 检查某类型为 std::unique_ptr
     template<typename, typename = void>
     struct check_unique : std::false_type {};
@@ -126,8 +136,6 @@ namespace tcp_kit {
                                       check_unique<arg_t>::value &&
                                       std::is_same<decltype(T::process), result_t(msg_context*, arg_t)>::value;
     };
-
-
 
     // 仅保留有 Connect Filter 的过滤器类型
     template <typename First, typename... Others>
@@ -197,6 +205,23 @@ namespace tcp_kit {
                 type_list<>>;
     };
 
+    // 仅保留有 Connect Filter 的过滤器类型
+    template <typename First, typename... Others>
+    struct valid_close_filters {
+        using types = typename std::conditional<
+                check_close<First>::value,
+                typename valid_close_filters<Others...>::types::template prepend<First>,
+                typename valid_close_filters<Others...>::types>::type;
+    };
+
+    template <typename Last>
+    struct valid_close_filters<Last> {
+        using types = std::conditional_t<
+                check_close<Last>::value,
+                type_list<Last>,
+                type_list<>>;
+    };
+
     void empty_connect_chain(ev_context* ctx);
 
     template<typename First, typename... Others>
@@ -214,6 +239,27 @@ namespace tcp_kit {
 
         static void call(ev_context* ctx) {
             Last::connect(ctx);
+        }
+
+    };
+
+    void empty_close_chain(ev_context* ctx);
+
+    template<typename First, typename... Others>
+    struct close_chain_caller {
+
+        static void call(ev_context* ctx) {
+            First::close(ctx);
+            close_chain_caller<Others...>::call(ctx);
+        }
+
+    };
+
+    template<typename Last>
+    struct close_chain_caller<Last> {
+
+        static void call(ev_context* ctx) {
+            Last::close(ctx);
         }
 
     };
@@ -266,6 +312,16 @@ namespace tcp_kit {
     template<typename... F>
     std::vector<bufferevent_filter_cb> make_writes(type_list<>, typename std::enable_if<(sizeof...(F) == 0), void>::type* = nullptr) {
         return {};
+    }
+
+    template<typename... F>
+    connect_filter make_close_chain(type_list<F...>, typename std::enable_if<(sizeof...(F) > 0), void>::type* = nullptr) {
+        return &close_chain_caller<F...>::call;
+    }
+
+    template<typename... F>
+    connect_filter make_close_chain(type_list<>, typename std::enable_if<(sizeof...(F) == 0), void>::type* = nullptr) {
+        return &empty_close_chain;
     }
 
     // 将 Process Filters 调用链展开, A, B, C  -> return C::process(ctx, B::process(ctx, A::process(ctx, move(input))));
@@ -321,6 +377,7 @@ namespace tcp_kit {
         chain->reads = make_reads(typename valid_read_filters<F...>::types{});
         chain->writes = make_reads(typename valid_write_filters<F...>::types{});
         chain->process = make_process_chain(typename valid_process_filters<F...>::types{});
+        chain->closes = make_close_chain(typename valid_close_filters<F...>::types{});
         return chain;
     }
 

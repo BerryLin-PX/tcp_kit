@@ -68,8 +68,8 @@ namespace tcp_kit {
     }
 
     void ev_handler_base::register_read_write_filters(ev_context* ctx) {
-        auto& reads = _filters->reads;
-        auto& writes = _filters->writes;
+        auto &reads = _filters->reads;
+        auto &writes = _filters->writes;
         for(size_t i = 0; i < max(reads.size(), writes.size()); ++i) {
             bufferevent* nested_bev = bufferevent_filter_new(ctx->bev,
                                                              i < reads.size() ? reads[i] : nullptr,
@@ -80,6 +80,14 @@ namespace tcp_kit {
             } else {
                 throw generic_error<CONS_BEV_FAILED>("Failed to register filter with index [%d]", i);
             }
+        }
+    }
+
+    void ev_handler_base::call_close_filters(ev_context* ctx) {
+        try {
+            _filters->closes(ctx);
+        } catch (...) {
+            // TODO
         }
     }
 

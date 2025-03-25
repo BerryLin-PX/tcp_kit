@@ -20,7 +20,9 @@
 
 
 int main() {
-    tcp_kit::server_test::log_server_by_libevent();
+//    tcp_kit::server_test::log_server_by_libevent();
 //    tcp_kit::server_test::log_server();
+//    tcp_kit::server_test::chat_room();
+    tcp_kit::server_test::file_system();
     return 0;
 }
