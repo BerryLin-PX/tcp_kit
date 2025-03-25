@@ -26,7 +26,7 @@ tcp_kit 中存在两种 Protocols 实现，generic 类和 http 类，前者是�
 对于 http 类也差不多，规则是通用的。那么为什么要将他们分为两个类实现呢？libevent 也为 http 协议提供了支持，但在使用方式上与普通的 tcp 连接不太一样，tcp_kit 为了兼容这种差异，对 http 做了额外的调整。理论上，你可以自己编写用于处理 http 连接的过滤器并在 generic 上声明它们，只是会更麻烦一些而已。
 
 ### api
-在示例中有这样一段代码，将消息原封不动地回传给客户端：
+在[示例](index.md#示例)中有这样一段代码，将消息原封不动地回传给客户端：
 ```c++
 svr.api("echo", [](std::string msg){
     return msg;
