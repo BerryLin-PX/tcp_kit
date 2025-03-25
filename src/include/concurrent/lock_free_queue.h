@@ -163,9 +163,7 @@ namespace tcp_kit {
                 if(old_size == 0) {
                     std::unique_lock<std::mutex> lock(_mutex);
                     if(_size.load() == 0) {
-                        interruption_point();
                         interruptible_wait_for(_not_empty, lock, std::chrono::seconds(3));
-                        interruption_point();
                     }
                     continue;
                 }

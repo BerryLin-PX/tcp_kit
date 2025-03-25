@@ -27,8 +27,8 @@ namespace tcp_kit {
         };
 
         struct flag_ptr {
-            T* ptr;
-            bool flag;
+            T*      ptr;
+            bool    flag;
             uint8_t padding[sizeof(void *) - sizeof(bool)];
         };
 
@@ -38,7 +38,7 @@ namespace tcp_kit {
             std::atomic<node_counter> count;
             std::atomic<counted_node_ptr> next;
 
-            node(): data(/*nullptr*/{nullptr, false, {0}}), count({0, 2}), next({0, nullptr, {0}}) {}
+            node(): data({nullptr, false, {0}}), count({0, 2}), next({0, nullptr, {0}}) {}
 
             void release_ref() {
                 node_counter old_counter = count.load(std::memory_order_relaxed);

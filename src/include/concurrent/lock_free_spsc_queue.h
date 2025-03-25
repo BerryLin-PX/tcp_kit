@@ -56,6 +56,9 @@ namespace tcp_kit {
             if (!popped) {
                 std::unique_lock<std::mutex> lock(_mutex);
                 while (!(popped = pop_head())) {
+//                    static std::atomic<uint32_t> block_times{0};
+//                    block_times++;
+//                    log_info("Will block: %d", block_times.load());
                     _not_empty.wait(lock);
                 }
             }

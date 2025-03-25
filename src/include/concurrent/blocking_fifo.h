@@ -6,6 +6,7 @@
 #include <utility>
 #include <chrono>
 #include "thread/interruptible_thread.h"
+#include <logger/logger.h>
 
 namespace tcp_kit {
 
