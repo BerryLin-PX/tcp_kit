@@ -24,6 +24,6 @@ int main() {
 ```
 
 ## 如何开始?
-1. 下载并安装 tcp_kit
-2. 阅读概述
+1. [下载并安装 tcp_kit](installation.md)
+2. 阅读[概述](overview.md)
 

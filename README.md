@@ -13,6 +13,8 @@ tcp_kit is a **lightweight, cross-platform** network protocol development kit ba
 - Dependencies: libevent 2.1+, Protobuf 3.0+
 - Build System: CMake 2.8+
 
+[Chinese Documentations](docs/index.md)
+
 ### 🛠 Installation
 
 #### Clone the Repository
