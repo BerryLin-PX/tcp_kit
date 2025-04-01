@@ -18,11 +18,62 @@
 //    return RUN_ALL_TESTS();
 //}
 
+template <typename T>
+struct get_arg_type;
+
+template <typename R, typename Arg>
+struct get_arg_type<R(*)(Arg)> {
+    using type = Arg;
+};
+
+template <typename R, typename Arg>
+struct get_arg_type<R(Arg)> {
+    using type = Arg;
+};
+
+template <typename R, typename Arg>
+struct get_arg_type<R(&)(Arg)> {
+    using type = Arg;
+};
+
+
+template <typename First, typename... Others>
+struct filters_caller {
+    static decltype(auto) call(typename get_arg_type<decltype(First::filter)>::type arg) {
+        return filters_caller<Others...>::call(First::filter(arg));
+    }
+};
+
+template <typename Last>
+struct filters_caller<Last> {
+    static decltype(auto) call(typename get_arg_type<decltype(Last::filter)>::type arg) {
+        return Last::filter(arg);
+    }
+};
+
+struct a {
+    static std::string filter(int a) {
+        printf("%d\n", a);
+        return "Hello";
+    }
+};
+
+struct b {
+    static float filter(std::string str) {
+        printf("%s\n", str.c_str());
+        return 3.14f;
+    }
+};
+
+struct c {
+    static bool filter(float f) {
+        printf("%f\n", f);
+        return true;
+    }
+};
+
 
 int main() {
-//    tcp_kit::server_test::log_server_by_libevent();
-//    tcp_kit::server_test::log_server();
-//    tcp_kit::server_test::chat_room();
-    tcp_kit::server_test::file_system();
+    auto r = filters_caller<a, b, c>::call(10);
     return 0;
 }
